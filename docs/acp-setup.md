@@ -1,19 +1,18 @@
-# Hermes Agent — ACP (Agent Client Protocol) Setup Guide
+# Hermes Agent — ACP (Agent Client Protocol) 설정 가이드
 
-Hermes Agent supports the **Agent Client Protocol (ACP)**, allowing it to run as
-a coding agent inside your editor. ACP lets your IDE send tasks to Hermes, and
-Hermes responds with file edits, terminal commands, and explanations — all shown
-natively in the editor UI.
+Hermes Agent는 **Agent Client Protocol (ACP)** 을 지원하여 에디터 내에서
+코딩 에이전트로 실행할 수 있습니다. ACP를 통해 IDE에서 Hermes에 작업을 전달하면,
+Hermes가 파일 편집, 터미널 명령, 설명 등을 에디터 UI에 네이티브로 표시합니다.
 
 ---
 
-## Prerequisites
+## 사전 요구 사항
 
-- Hermes Agent installed and configured (`hermes setup` completed)
-- An API key / provider set up in `~/.hermes/.env` or via `hermes login`
+- Hermes Agent 설치 및 구성 완료 (`hermes setup` 완료)
+- `~/.hermes/.env` 또는 `hermes login`을 통해 API 키 / 제공자 설정 완료
 - Python 3.11+
 
-Install the ACP extra:
+ACP 확장 패키지 설치:
 
 ```bash
 pip install -e ".[acp]"
@@ -21,25 +20,25 @@ pip install -e ".[acp]"
 
 ---
 
-## VS Code Setup
+## VS Code 설정
 
-### 1. Install the ACP Client extension
+### 1. ACP Client 확장 프로그램 설치
 
-Open VS Code and install **ACP Client** from the marketplace:
+VS Code를 열고 마켓플레이스에서 **ACP Client**를 설치합니다:
 
-- Press `Ctrl+Shift+X` (or `Cmd+Shift+X` on macOS)
-- Search for **"ACP Client"**
-- Click **Install**
+- `Ctrl+Shift+X` (macOS에서는 `Cmd+Shift+X`) 누르기
+- **"ACP Client"** 검색
+- **Install** 클릭
 
-Or install from the command line:
+또는 명령줄에서 설치:
 
 ```bash
 code --install-extension anysphere.acp-client
 ```
 
-### 2. Configure settings.json
+### 2. settings.json 구성
 
-Open your VS Code settings (`Ctrl+,` → click the `{}` icon for JSON) and add:
+VS Code 설정을 엽니다 (`Ctrl+,` → JSON을 위해 `{}` 아이콘 클릭) 후 다음을 추가합니다:
 
 ```json
 {
@@ -52,27 +51,27 @@ Open your VS Code settings (`Ctrl+,` → click the `{}` icon for JSON) and add:
 }
 ```
 
-Replace `/path/to/hermes-agent` with the actual path to your Hermes Agent
-installation (e.g. `~/.hermes/hermes-agent`).
+`/path/to/hermes-agent`를 실제 Hermes Agent 설치 경로로 변경합니다
+(예: `~/.hermes/hermes-agent`).
 
-Alternatively, if `hermes` is on your PATH, the ACP Client can discover it
-automatically via the registry directory.
+또는, `hermes`가 PATH에 있으면 ACP Client가 레지스트리 디렉토리를 통해
+자동으로 검색할 수 있습니다.
 
-### 3. Restart VS Code
+### 3. VS Code 재시작
 
-After configuring, restart VS Code. You should see **Hermes Agent** appear in
-the ACP agent picker in the chat/agent panel.
+설정 후 VS Code를 재시작합니다. 채팅/에이전트 패널의 ACP 에이전트 선택기에서
+**Hermes Agent**가 표시되어야 합니다.
 
 ---
 
-## Zed Setup
+## Zed 설정
 
-Zed has built-in ACP support.
+Zed는 ACP를 기본 지원합니다.
 
-### 1. Configure Zed settings
+### 1. Zed 설정 구성
 
-Open Zed settings (`Cmd+,` on macOS or `Ctrl+,` on Linux) and add to your
-`settings.json`:
+Zed 설정을 엽니다 (macOS에서 `Cmd+,` 또는 Linux에서 `Ctrl+,`) 후
+`settings.json`에 다음을 추가합니다:
 
 ```json
 {
@@ -86,134 +85,136 @@ Open Zed settings (`Cmd+,` on macOS or `Ctrl+,` on Linux) and add to your
 }
 ```
 
-### 2. Restart Zed
+### 2. Zed 재시작
 
-Hermes Agent will appear in the agent panel. Select it and start a conversation.
+에이전트 패널에 Hermes Agent가 표시됩니다. 선택하여 대화를 시작하세요.
 
 ---
 
-## JetBrains Setup (IntelliJ, PyCharm, WebStorm, etc.)
+## JetBrains 설정 (IntelliJ, PyCharm, WebStorm 등)
 
-### 1. Install the ACP plugin
+### 1. ACP 플러그인 설치
 
-- Open **Settings** → **Plugins** → **Marketplace**
-- Search for **"ACP"** or **"Agent Client Protocol"**
-- Install and restart the IDE
+- **Settings** → **Plugins** → **Marketplace** 열기
+- **"ACP"** 또는 **"Agent Client Protocol"** 검색
+- 설치 후 IDE 재시작
 
-### 2. Configure the agent
+### 2. 에이전트 구성
 
-- Open **Settings** → **Tools** → **ACP Agents**
-- Click **+** to add a new agent
-- Set the registry directory to your `acp_registry/` folder:
+- **Settings** → **Tools** → **ACP Agents** 열기
+- **+** 를 클릭하여 새 에이전트 추가
+- 레지스트리 디렉토리를 `acp_registry/` 폴더로 설정:
   `/path/to/hermes-agent/acp_registry`
-- Click **OK**
+- **OK** 클릭
 
-### 3. Use the agent
+### 3. 에이전트 사용
 
-Open the ACP panel (usually in the right sidebar) and select **Hermes Agent**.
-
----
-
-## What You Will See
-
-Once connected, your editor provides a native interface to Hermes Agent:
-
-### Chat Panel
-A conversational interface where you can describe tasks, ask questions, and
-give instructions. Hermes responds with explanations and actions.
-
-### File Diffs
-When Hermes edits files, you see standard diffs in the editor. You can:
-- **Accept** individual changes
-- **Reject** changes you don't want
-- **Review** the full diff before applying
-
-### Terminal Commands
-When Hermes needs to run shell commands (builds, tests, installs), the editor
-shows them in an integrated terminal. Depending on your settings:
-- Commands may run automatically
-- Or you may be prompted to **approve** each command
-
-### Approval Flow
-For potentially destructive operations, the editor will prompt you for
-approval before Hermes proceeds. This includes:
-- File deletions
-- Shell commands
-- Git operations
+ACP 패널(보통 오른쪽 사이드바)을 열고 **Hermes Agent**를 선택합니다.
 
 ---
 
-## Configuration
+## 표시되는 내용
 
-Hermes Agent under ACP uses the **same configuration** as the CLI:
+연결되면 에디터가 Hermes Agent에 대한 네이티브 인터페이스를 제공합니다:
 
-- **API keys / providers**: `~/.hermes/.env`
-- **Agent config**: `~/.hermes/config.yaml`
-- **Skills**: `~/.hermes/skills/`
-- **Sessions**: `~/.hermes/state.db`
+### 채팅 패널
+작업을 설명하고, 질문하고, 지시를 내릴 수 있는 대화형 인터페이스입니다.
+Hermes가 설명과 액션으로 응답합니다.
 
-You can run `hermes setup` to configure providers, or edit `~/.hermes/.env`
-directly.
+### 파일 Diff
+Hermes가 파일을 편집하면 에디터에 표준 diff가 표시됩니다. 다음을 수행할 수 있습니다:
+- 개별 변경 사항 **수락**
+- 원하지 않는 변경 사항 **거부**
+- 적용 전 전체 diff **검토**
 
-### Changing the model
+### 터미널 명령
+Hermes가 셸 명령(빌드, 테스트, 설치)을 실행해야 할 때 에디터가 통합 터미널에
+표시합니다. 설정에 따라:
+- 명령이 자동으로 실행될 수 있음
+- 또는 각 명령에 대해 **승인** 요청을 받을 수 있음
 
-Edit `~/.hermes/config.yaml`:
+### 승인 흐름
+잠재적으로 위험한 작업의 경우 에디터가 Hermes 진행 전에 승인을 요청합니다.
+다음이 포함됩니다:
+- 파일 삭제
+- 셸 명령
+- Git 작업
+
+---
+
+## 설정
+
+ACP에서 Hermes Agent는 CLI와 **동일한 설정**을 사용합니다:
+
+- **API 키 / 제공자**: `~/.hermes/.env`
+- **에이전트 설정**: `~/.hermes/config.yaml`
+- **스킬**: `~/.hermes/skills/`
+- **세션**: `~/.hermes/state.db`
+
+`hermes setup`을 실행하여 제공자를 구성하거나, `~/.hermes/.env`를
+직접 편집할 수 있습니다.
+
+### 모델 변경
+
+`~/.hermes/config.yaml`을 편집합니다:
 
 ```yaml
 model: openrouter/nous/hermes-3-llama-3.1-70b
 ```
 
-Or set the `HERMES_MODEL` environment variable.
+또는 `HERMES_MODEL` 환경 변수를 설정합니다.
 
-### Toolsets
+### 도구 세트
 
-ACP sessions use the curated `hermes-acp` toolset by default. It is designed for editor workflows and intentionally excludes things like messaging delivery, cronjob management, and audio-first UX features.
+ACP 세션은 기본적으로 큐레이션된 `hermes-acp` 도구 세트를 사용합니다. 이 도구 세트는
+에디터 워크플로우를 위해 설계되었으며 메시징 전달, cronjob 관리, 오디오 중심 UX 기능 등은
+의도적으로 제외되어 있습니다.
 
 ---
 
-## Troubleshooting
+## 문제 해결
 
-### Agent doesn't appear in the editor
+### 에이전트가 에디터에 표시되지 않음
 
-1. **Check the registry path** — make sure the `acp_registry/` directory path
-   in your editor settings is correct and contains `agent.json`.
-2. **Check `hermes` is on PATH** — run `which hermes` in a terminal. If not
-   found, you may need to activate your virtualenv or add it to PATH.
-3. **Restart the editor** after changing settings.
+1. **레지스트리 경로 확인** — 에디터 설정의 `acp_registry/` 디렉토리 경로가
+   올바르고 `agent.json`이 포함되어 있는지 확인합니다.
+2. **`hermes`가 PATH에 있는지 확인** — 터미널에서 `which hermes`를 실행합니다.
+   찾을 수 없는 경우 virtualenv를 활성화하거나 PATH에 추가해야 할 수 있습니다.
+3. 설정 변경 후 **에디터를 재시작**합니다.
 
-### Agent starts but errors immediately
+### 에이전트가 시작되지만 즉시 오류 발생
 
-1. Run `hermes doctor` to check your configuration.
-2. Check that you have a valid API key: `hermes status`
-3. Try running `hermes acp` directly in a terminal to see error output.
+1. `hermes doctor`를 실행하여 설정을 확인합니다.
+2. 유효한 API 키가 있는지 확인합니다: `hermes status`
+3. 터미널에서 `hermes acp`를 직접 실행하여 오류 출력을 확인합니다.
 
-### "Module not found" errors
+### "Module not found" 오류
 
-Make sure you installed the ACP extra:
+ACP 확장 패키지를 설치했는지 확인합니다:
 
 ```bash
 pip install -e ".[acp]"
 ```
 
-### Slow responses
+### 느린 응답
 
-- ACP streams responses, so you should see incremental output. If the agent
-  appears stuck, check your network connection and API provider status.
-- Some providers have rate limits. Try switching to a different model/provider.
+- ACP는 응답을 스트리밍하므로 점진적인 출력이 표시되어야 합니다. 에이전트가
+  멈춘 것처럼 보이면 네트워크 연결과 API 제공자 상태를 확인하세요.
+- 일부 제공자에는 속도 제한이 있습니다. 다른 모델/제공자로 전환해 보세요.
 
-### Permission denied for terminal commands
+### 터미널 명령 권한 거부
 
-If the editor blocks terminal commands, check your ACP Client extension
-settings for auto-approval or manual-approval preferences.
+에디터가 터미널 명령을 차단하는 경우 ACP Client 확장 프로그램 설정에서
+자동 승인 또는 수동 승인 기본 설정을 확인하세요.
 
-### Logs
+### 로그
 
-Hermes logs are written to stderr when running in ACP mode. Check:
-- VS Code: **Output** panel → select **ACP Client** or **Hermes Agent**
-- Zed: **View** → **Toggle Terminal** and check the process output
-- JetBrains: **Event Log** or the ACP tool window
+Hermes 로그는 ACP 모드에서 실행할 때 stderr에 기록됩니다. 확인 방법:
+- VS Code: **Output** 패널 → **ACP Client** 또는 **Hermes Agent** 선택
+- Zed: **View** → **Toggle Terminal**에서 프로세스 출력 확인
+- JetBrains: **Event Log** 또는 ACP 도구 창
 
-You can also enable verbose logging:
+자세한 로깅을 활성화할 수도 있습니다:
 
 ```bash
 HERMES_LOG_LEVEL=DEBUG hermes acp
@@ -221,8 +222,8 @@ HERMES_LOG_LEVEL=DEBUG hermes acp
 
 ---
 
-## Further Reading
+## 추가 참고 자료
 
-- [ACP Specification](https://github.com/anysphere/acp)
-- [Hermes Agent Documentation](https://github.com/NousResearch/hermes-agent)
-- Run `hermes --help` for all CLI options
+- [ACP 명세](https://github.com/anysphere/acp)
+- [Hermes Agent 문서](https://github.com/NousResearch/hermes-agent)
+- 모든 CLI 옵션은 `hermes --help`로 확인

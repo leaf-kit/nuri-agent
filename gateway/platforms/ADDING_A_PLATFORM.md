@@ -1,62 +1,62 @@
-# Adding a New Messaging Platform
+# 새 메시징 플랫폼 추가하기
 
-Checklist for integrating a new messaging platform into the Hermes gateway.
-Use this as a reference when building a new adapter — every item here is a
-real integration point that exists in the codebase. Missing any of them will
-cause broken functionality, missing features, or inconsistent behavior.
+Hermes 게이트웨이에 새 메시징 플랫폼을 통합하기 위한 체크리스트입니다.
+새 어댑터를 구축할 때 이 문서를 참고하세요 -- 여기에 나열된 모든 항목은
+코드베이스에 실제로 존재하는 통합 지점입니다. 하나라도 누락하면
+기능 결함, 기능 누락, 또는 일관성 없는 동작이 발생합니다.
 
 ---
 
-## 1. Core Adapter (`gateway/platforms/<platform>.py`)
+## 1. 핵심 어댑터 (`gateway/platforms/<platform>.py`)
 
-The adapter is a subclass of `BasePlatformAdapter` from `gateway/platforms/base.py`.
+어댑터는 `gateway/platforms/base.py`의 `BasePlatformAdapter` 하위 클래스입니다.
 
-### Required methods
+### 필수 메서드
 
-| Method | Purpose |
-|--------|---------|
-| `__init__(self, config)` | Parse config, init state. Call `super().__init__(config, Platform.YOUR_PLATFORM)` |
-| `connect() -> bool` | Connect to the platform, start listeners. Return True on success |
-| `disconnect()` | Stop listeners, close connections, cancel tasks |
-| `send(chat_id, text, ...) -> SendResult` | Send a text message |
-| `send_typing(chat_id)` | Send typing indicator |
-| `send_image(chat_id, image_url, caption) -> SendResult` | Send an image |
-| `get_chat_info(chat_id) -> dict` | Return `{name, type, chat_id}` for a chat |
+| 메서드 | 목적 |
+|--------|------|
+| `__init__(self, config)` | 설정 파싱, 상태 초기화. `super().__init__(config, Platform.YOUR_PLATFORM)` 호출 |
+| `connect() -> bool` | 플랫폼에 연결하고 리스너를 시작. 성공 시 True 반환 |
+| `disconnect()` | 리스너 중지, 연결 종료, 작업 취소 |
+| `send(chat_id, text, ...) -> SendResult` | 텍스트 메시지 전송 |
+| `send_typing(chat_id)` | 입력 중 표시기 전송 |
+| `send_image(chat_id, image_url, caption) -> SendResult` | 이미지 전송 |
+| `get_chat_info(chat_id) -> dict` | 채팅의 `{name, type, chat_id}` 반환 |
 
-### Optional methods (have default stubs in base)
+### 선택적 메서드 (기본 스텁이 base에 존재)
 
-| Method | Purpose |
-|--------|---------|
-| `send_document(chat_id, path, caption)` | Send a file attachment |
-| `send_voice(chat_id, path)` | Send a voice message |
-| `send_video(chat_id, path, caption)` | Send a video |
-| `send_animation(chat_id, path, caption)` | Send a GIF/animation |
-| `send_image_file(chat_id, path, caption)` | Send image from local file |
+| 메서드 | 목적 |
+|--------|------|
+| `send_document(chat_id, path, caption)` | 파일 첨부 전송 |
+| `send_voice(chat_id, path)` | 음성 메시지 전송 |
+| `send_video(chat_id, path, caption)` | 동영상 전송 |
+| `send_animation(chat_id, path, caption)` | GIF/애니메이션 전송 |
+| `send_image_file(chat_id, path, caption)` | 로컬 파일에서 이미지 전송 |
 
-### Required function
+### 필수 함수
 
 ```python
 def check_<platform>_requirements() -> bool:
-    """Check if this platform's dependencies are available."""
+    """이 플랫폼의 의존성이 사용 가능한지 확인합니다."""
 ```
 
-### Key patterns to follow
+### 따라야 할 핵심 패턴
 
-- Use `self.build_source(...)` to construct `SessionSource` objects
-- Call `self.handle_message(event)` to dispatch inbound messages to the gateway
-- Use `MessageEvent`, `MessageType`, `SendResult` from base
-- Use `cache_image_from_bytes`, `cache_audio_from_bytes`, `cache_document_from_bytes` for attachments
-- Filter self-messages (prevent reply loops)
-- Filter sync/echo messages if the platform has them
-- Redact sensitive identifiers (phone numbers, tokens) in all log output
-- Implement reconnection with exponential backoff + jitter for streaming connections
-- Set `MAX_MESSAGE_LENGTH` if the platform has message size limits
+- `self.build_source(...)`를 사용하여 `SessionSource` 객체 구성
+- `self.handle_message(event)`를 호출하여 수신 메시지를 게이트웨이로 디스패치
+- base의 `MessageEvent`, `MessageType`, `SendResult` 사용
+- 첨부 파일에는 `cache_image_from_bytes`, `cache_audio_from_bytes`, `cache_document_from_bytes` 사용
+- 자기 자신의 메시지 필터링 (응답 루프 방지)
+- 플랫폼에 동기화/에코 메시지가 있는 경우 필터링
+- 모든 로그 출력에서 민감한 식별자(전화번호, 토큰) 마스킹
+- 스트리밍 연결에 대해 지수 백오프 + 지터를 사용한 재연결 구현
+- 플랫폼에 메시지 크기 제한이 있는 경우 `MAX_MESSAGE_LENGTH` 설정
 
 ---
 
-## 2. Platform Enum (`gateway/config.py`)
+## 2. 플랫폼 Enum (`gateway/config.py`)
 
-Add the platform to the `Platform` enum:
+`Platform` enum에 플랫폼을 추가합니다:
 
 ```python
 class Platform(Enum):
@@ -64,7 +64,7 @@ class Platform(Enum):
     YOUR_PLATFORM = "your_platform"
 ```
 
-Add env var loading in `_apply_env_overrides()`:
+`_apply_env_overrides()`에 환경 변수 로딩을 추가합니다:
 
 ```python
 # Your Platform
@@ -76,14 +76,14 @@ if your_token:
     config.platforms[Platform.YOUR_PLATFORM].token = your_token
 ```
 
-Update `get_connected_platforms()` if your platform doesn't use token/api_key
-(e.g., WhatsApp uses `enabled` flag, Signal uses `extra` dict).
+플랫폼이 token/api_key를 사용하지 않는 경우 `get_connected_platforms()`를 업데이트합니다
+(예: WhatsApp는 `enabled` 플래그를 사용하고, Signal은 `extra` dict를 사용).
 
 ---
 
-## 3. Adapter Factory (`gateway/run.py`)
+## 3. 어댑터 팩토리 (`gateway/run.py`)
 
-Add to `_create_adapter()`:
+`_create_adapter()`에 추가합니다:
 
 ```python
 elif platform == Platform.YOUR_PLATFORM:
@@ -96,9 +96,9 @@ elif platform == Platform.YOUR_PLATFORM:
 
 ---
 
-## 4. Authorization Maps (`gateway/run.py`)
+## 4. 인증 맵 (`gateway/run.py`)
 
-Add to BOTH dicts in `_is_user_authorized()`:
+`_is_user_authorized()`의 두 dict 모두에 추가합니다:
 
 ```python
 platform_env_map = {
@@ -113,17 +113,17 @@ platform_allow_all_map = {
 
 ---
 
-## 5. Session Source (`gateway/session.py`)
+## 5. 세션 소스 (`gateway/session.py`)
 
-If your platform needs extra identity fields (e.g., Signal's UUID alongside
-phone number), add them to the `SessionSource` dataclass with `Optional` defaults,
-and update `to_dict()`, `from_dict()`, and `build_source()` in base.py.
+플랫폼에 추가 ID 필드가 필요한 경우(예: Signal의 전화번호와 함께 사용되는 UUID),
+`SessionSource` 데이터클래스에 `Optional` 기본값과 함께 추가하고,
+base.py의 `to_dict()`, `from_dict()`, `build_source()`를 업데이트합니다.
 
 ---
 
-## 6. System Prompt Hints (`agent/prompt_builder.py`)
+## 6. 시스템 프롬프트 힌트 (`agent/prompt_builder.py`)
 
-Add a `PLATFORM_HINTS` entry so the agent knows what platform it's on:
+에이전트가 어떤 플랫폼에 있는지 알 수 있도록 `PLATFORM_HINTS` 항목을 추가합니다:
 
 ```python
 PLATFORM_HINTS = {
@@ -135,14 +135,14 @@ PLATFORM_HINTS = {
 }
 ```
 
-Without this, the agent won't know it's on your platform and may use
-inappropriate formatting (e.g., markdown on platforms that don't render it).
+이것이 없으면 에이전트는 자신이 어떤 플랫폼에 있는지 모르고
+부적절한 포맷팅을 사용할 수 있습니다(예: 마크다운을 렌더링하지 않는 플랫폼에서 마크다운 사용).
 
 ---
 
-## 7. Toolset (`toolsets.py`)
+## 7. 도구 세트 (`toolsets.py`)
 
-Add a named toolset for your platform:
+플랫폼용 이름이 지정된 도구 세트를 추가합니다:
 
 ```python
 "hermes-your-platform": {
@@ -152,7 +152,7 @@ Add a named toolset for your platform:
 },
 ```
 
-And add it to the `hermes-gateway` composite:
+그리고 `hermes-gateway` 복합체에 추가합니다:
 
 ```python
 "hermes-gateway": {
@@ -162,9 +162,9 @@ And add it to the `hermes-gateway` composite:
 
 ---
 
-## 8. Cron Delivery (`cron/scheduler.py`)
+## 8. 크론 전달 (`cron/scheduler.py`)
 
-Add to `platform_map` in `_deliver_result()`:
+`_deliver_result()`의 `platform_map`에 추가합니다:
 
 ```python
 platform_map = {
@@ -173,13 +173,13 @@ platform_map = {
 }
 ```
 
-Without this, `cronjob(action="create", deliver="your_platform", ...)` silently fails.
+이것이 없으면 `cronjob(action="create", deliver="your_platform", ...)`가 조용히 실패합니다.
 
 ---
 
-## 9. Send Message Tool (`tools/send_message_tool.py`)
+## 9. 메시지 전송 도구 (`tools/send_message_tool.py`)
 
-Add to `platform_map` in `send_message_tool()`:
+`send_message_tool()`의 `platform_map`에 추가합니다:
 
 ```python
 platform_map = {
@@ -188,32 +188,32 @@ platform_map = {
 }
 ```
 
-Add routing in `_send_to_platform()`:
+`_send_to_platform()`에 라우팅을 추가합니다:
 
 ```python
 elif platform == Platform.YOUR_PLATFORM:
     return await _send_your_platform(pconfig, chat_id, message)
 ```
 
-Implement `_send_your_platform()` — a standalone async function that sends
-a single message without requiring the full adapter (for use by cron jobs
-and the send_message tool outside the gateway process).
+`_send_your_platform()`을 구현합니다 -- 전체 어댑터 없이 단일 메시지를 전송하는
+독립형 비동기 함수입니다(게이트웨이 프로세스 외부의 크론 작업과
+send_message 도구에서 사용).
 
-Update the tool schema `target` description to include your platform example.
-
----
-
-## 10. Cronjob Tool Schema (`tools/cronjob_tools.py`)
-
-Update the `deliver` parameter description and docstring to mention your
-platform as a delivery option.
+도구 스키마의 `target` 설명에 플랫폼 예시를 포함하도록 업데이트합니다.
 
 ---
 
-## 11. Channel Directory (`gateway/channel_directory.py`)
+## 10. 크론잡 도구 스키마 (`tools/cronjob_tools.py`)
 
-If your platform can't enumerate chats (most can't), add it to the
-session-based discovery list:
+`deliver` 매개변수 설명과 docstring에 플랫폼을
+전달 옵션으로 언급하도록 업데이트합니다.
+
+---
+
+## 11. 채널 디렉토리 (`gateway/channel_directory.py`)
+
+플랫폼이 채팅을 열거할 수 없는 경우(대부분 불가능), 세션 기반
+검색 목록에 추가합니다:
 
 ```python
 for plat_name in ("telegram", "whatsapp", "signal", "your_platform"):
@@ -221,9 +221,9 @@ for plat_name in ("telegram", "whatsapp", "signal", "your_platform"):
 
 ---
 
-## 12. Status Display (`hermes_cli/status.py`)
+## 12. 상태 표시 (`hermes_cli/status.py`)
 
-Add to the `platforms` dict in the Messaging Platforms section:
+메시징 플랫폼 섹션의 `platforms` dict에 추가합니다:
 
 ```python
 platforms = {
@@ -234,9 +234,9 @@ platforms = {
 
 ---
 
-## 13. Gateway Setup Wizard (`hermes_cli/gateway.py`)
+## 13. 게이트웨이 설정 마법사 (`hermes_cli/gateway.py`)
 
-Add to the `_PLATFORMS` list:
+`_PLATFORMS` 리스트에 추가합니다:
 
 ```python
 {
@@ -249,65 +249,65 @@ Add to the `_PLATFORMS` list:
 }
 ```
 
-If your platform needs custom setup logic (connectivity testing, QR codes,
-policy choices), add a `_setup_your_platform()` function and route to it
-in the platform selection switch.
+플랫폼에 커스텀 설정 로직(연결 테스트, QR 코드,
+정책 선택)이 필요한 경우 `_setup_your_platform()` 함수를 추가하고
+플랫폼 선택 스위치에서 라우팅합니다.
 
-Update `_platform_status()` if your platform's "configured" check differs
-from the standard `bool(get_env_value(token_var))`.
-
----
-
-## 14. Phone/ID Redaction (`agent/redact.py`)
-
-If your platform uses sensitive identifiers (phone numbers, etc.), add a
-regex pattern and redaction function to `agent/redact.py`. This ensures
-identifiers are masked in ALL log output, not just your adapter's logs.
+플랫폼의 "구성됨" 확인이 표준 `bool(get_env_value(token_var))`과
+다른 경우 `_platform_status()`를 업데이트합니다.
 
 ---
 
-## 15. Documentation
+## 14. 전화번호/ID 마스킹 (`agent/redact.py`)
 
-| File | What to update |
-|------|---------------|
-| `README.md` | Platform list in feature table + documentation table |
-| `AGENTS.md` | Gateway description + env var config section |
-| `website/docs/user-guide/messaging/<platform>.md` | **NEW** — Full setup guide (see existing platform docs for template) |
-| `website/docs/user-guide/messaging/index.md` | Architecture diagram, toolset table, security examples, Next Steps links |
-| `website/docs/reference/environment-variables.md` | All env vars for the platform |
+플랫폼이 민감한 식별자(전화번호 등)를 사용하는 경우, `agent/redact.py`에
+정규식 패턴과 마스킹 함수를 추가합니다. 이를 통해 어댑터 로그뿐만 아니라
+모든 로그 출력에서 식별자가 마스킹됩니다.
 
 ---
 
-## 16. Tests (`tests/gateway/test_<platform>.py`)
+## 15. 문서화
 
-Recommended test coverage:
-
-- Platform enum exists with correct value
-- Config loading from env vars via `_apply_env_overrides`
-- Adapter init (config parsing, allowlist handling, default values)
-- Helper functions (redaction, parsing, file type detection)
-- Session source round-trip (to_dict → from_dict)
-- Authorization integration (platform in allowlist maps)
-- Send message tool routing (platform in platform_map)
-
-Optional but valuable:
-- Async tests for message handling flow (mock the platform API)
-- SSE/WebSocket reconnection logic
-- Attachment processing
-- Group message filtering
+| 파일 | 업데이트 내용 |
+|------|--------------|
+| `README.md` | 기능 표 + 문서 표의 플랫폼 목록 |
+| `AGENTS.md` | 게이트웨이 설명 + 환경 변수 설정 섹션 |
+| `website/docs/user-guide/messaging/<platform>.md` | **신규** -- 전체 설정 가이드 (기존 플랫폼 문서를 템플릿으로 참조) |
+| `website/docs/user-guide/messaging/index.md` | 아키텍처 다이어그램, 도구 세트 표, 보안 예시, 다음 단계 링크 |
+| `website/docs/reference/environment-variables.md` | 플랫폼의 모든 환경 변수 |
 
 ---
 
-## Quick Verification
+## 16. 테스트 (`tests/gateway/test_<platform>.py`)
 
-After implementing everything, verify with:
+권장 테스트 커버리지:
+
+- 플랫폼 enum이 올바른 값으로 존재하는지 확인
+- `_apply_env_overrides`를 통한 환경 변수 설정 로딩
+- 어댑터 초기화 (설정 파싱, 허용 목록 처리, 기본값)
+- 헬퍼 함수 (마스킹, 파싱, 파일 타입 감지)
+- 세션 소스 왕복 테스트 (to_dict -> from_dict)
+- 인증 통합 (허용 목록 맵에 플랫폼 포함)
+- 메시지 전송 도구 라우팅 (platform_map에 플랫폼 포함)
+
+선택적이지만 가치 있는 테스트:
+- 메시지 처리 흐름에 대한 비동기 테스트 (플랫폼 API 모킹)
+- SSE/WebSocket 재연결 로직
+- 첨부 파일 처리
+- 그룹 메시지 필터링
+
+---
+
+## 빠른 검증
+
+모든 구현을 완료한 후 다음으로 검증합니다:
 
 ```bash
-# All tests pass
+# 모든 테스트 통과
 python -m pytest tests/ -q
 
-# Grep for your platform name to find any missed integration points
+# 플랫폼 이름으로 grep하여 누락된 통합 지점 찾기
 grep -r "telegram\|discord\|whatsapp\|slack" gateway/ tools/ agent/ cron/ hermes_cli/ toolsets.py \
   --include="*.py" -l | sort -u
-# Check each file in the output — if it mentions other platforms but not yours, you missed it
+# 출력의 각 파일을 확인 -- 다른 플랫폼은 언급하지만 여러분의 플랫폼이 없다면 누락된 것입니다
 ```

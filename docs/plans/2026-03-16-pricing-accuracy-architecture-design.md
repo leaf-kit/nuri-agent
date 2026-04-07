@@ -1,62 +1,62 @@
-# Pricing Accuracy Architecture
+# 가격 정확도 아키텍처
 
-Date: 2026-03-16
+날짜: 2026-03-16
 
-## Goal
+## 목표
 
-Hermes should only show dollar costs when they are backed by an official source for the user's actual billing path.
+Hermes는 사용자의 실제 청구 경로에 대한 공식 소스로 뒷받침되는 경우에만 달러 비용을 표시해야 합니다.
 
-This design replaces the current static, heuristic pricing flow in:
+이 설계는 다음에 있는 현재의 정적, 휴리스틱 가격 책정 흐름을 대체합니다:
 
 - `run_agent.py`
 - `agent/usage_pricing.py`
 - `agent/insights.py`
 - `cli.py`
 
-with a provider-aware pricing system that:
+새로운 제공자 인식 가격 시스템은 다음을 수행합니다:
 
-- handles cache billing correctly
-- distinguishes `actual` vs `estimated` vs `included` vs `unknown`
-- reconciles post-hoc costs when providers expose authoritative billing data
-- supports direct providers, OpenRouter, subscriptions, enterprise pricing, and custom endpoints
+- 캐시 청구를 올바르게 처리
+- `actual` vs `estimated` vs `included` vs `unknown` 구분
+- 제공자가 권위 있는 청구 데이터를 노출할 때 사후 비용 조정
+- 직접 제공자, OpenRouter, 구독, 기업 가격, 커스텀 엔드포인트 지원
 
-## Problems In The Current Design
+## 현재 설계의 문제점
 
-Current Hermes behavior has four structural issues:
+현재 Hermes 동작에는 네 가지 구조적 문제가 있습니다:
 
-1. It stores only `prompt_tokens` and `completion_tokens`, which is insufficient for providers that bill cache reads and cache writes separately.
-2. It uses a static model price table and fuzzy heuristics, which can drift from current official pricing.
-3. It assumes public API list pricing matches the user's real billing path.
-4. It has no distinction between live estimates and reconciled billed cost.
+1. `prompt_tokens`와 `completion_tokens`만 저장하는데, 이는 캐시 읽기와 캐시 쓰기를 별도로 청구하는 제공자에게 불충분합니다.
+2. 정적 모델 가격 테이블과 퍼지 휴리스틱을 사용하여 현재 공식 가격과 차이가 발생할 수 있습니다.
+3. 공개 API 목록 가격이 사용자의 실제 청구 경로와 일치한다고 가정합니다.
+4. 실시간 추정치와 조정된 청구 비용 간의 구분이 없습니다.
 
-## Design Principles
+## 설계 원칙
 
-1. Normalize usage before pricing.
-2. Never fold cached tokens into plain input cost.
-3. Track certainty explicitly.
-4. Treat the billing path as part of the model identity.
-5. Prefer official machine-readable sources over scraped docs.
-6. Use post-hoc provider cost APIs when available.
-7. Show `n/a` rather than inventing precision.
+1. 가격 책정 전에 사용량을 정규화합니다.
+2. 캐시된 토큰을 일반 입력 비용에 절대 합산하지 않습니다.
+3. 확실성을 명시적으로 추적합니다.
+4. 청구 경로를 모델 아이덴티티의 일부로 취급합니다.
+5. 스크래핑된 문서보다 공식 기계 판독 가능 소스를 선호합니다.
+6. 가능한 경우 사후 제공자 비용 API를 사용합니다.
+7. 정밀도를 만들어내기보다 `n/a`를 표시합니다.
 
-## High-Level Architecture
+## 상위 수준 아키텍처
 
-The new system has four layers:
+새 시스템은 네 개의 계층으로 구성됩니다:
 
 1. `usage_normalization`
-   Converts raw provider usage into a canonical usage record.
+   원시 제공자 사용량을 정규 사용량 레코드로 변환합니다.
 2. `pricing_source_resolution`
-   Determines the billing path, source of truth, and applicable pricing source.
+   청구 경로, 진실의 소스, 적용 가능한 가격 소스를 결정합니다.
 3. `cost_estimation_and_reconciliation`
-   Produces an immediate estimate when possible, then replaces or annotates it with actual billed cost later.
+   가능한 경우 즉시 추정치를 생성한 다음, 나중에 실제 청구 비용으로 대체하거나 주석을 달아줍니다.
 4. `presentation`
-   `/usage`, `/insights`, and the status bar display cost with certainty metadata.
+   `/usage`, `/insights`, 상태 바가 확실성 메타데이터와 함께 비용을 표시합니다.
 
-## Canonical Usage Record
+## 정규 사용량 레코드
 
-Add a canonical usage model that every provider path maps into before any pricing math happens.
+모든 제공자 경로가 가격 계산 전에 매핑되는 정규 사용량 모델을 추가합니다.
 
-Suggested structure:
+제안 구조:
 
 ```python
 @dataclass
@@ -82,42 +82,42 @@ class CanonicalUsage:
     provider_response_id: str | None = None
 ```
 
-Rules:
+규칙:
 
-- `input_tokens` means non-cached input only.
-- `cache_read_tokens` and `cache_write_tokens` are never merged into `input_tokens`.
-- `output_tokens` excludes cache metrics.
-- `reasoning_tokens` is telemetry unless a provider officially bills it separately.
+- `input_tokens`는 캐시되지 않은 입력만을 의미합니다.
+- `cache_read_tokens`와 `cache_write_tokens`는 절대 `input_tokens`에 합산되지 않습니다.
+- `output_tokens`는 캐시 메트릭을 제외합니다.
+- `reasoning_tokens`는 제공자가 공식적으로 별도 청구하지 않는 한 텔레메트리입니다.
 
-This is the same normalization pattern used by `opencode`, extended with provenance and reconciliation ids.
+이것은 `opencode`에서 사용되는 정규화 패턴과 동일하며, 출처 및 조정 ID가 확장되었습니다.
 
-## Provider Normalization Rules
+## 제공자 정규화 규칙
 
 ### OpenAI Direct
 
-Source usage fields:
+소스 사용량 필드:
 
 - `prompt_tokens`
 - `completion_tokens`
 - `prompt_tokens_details.cached_tokens`
 
-Normalization:
+정규화:
 
 - `cache_read_tokens = cached_tokens`
 - `input_tokens = prompt_tokens - cached_tokens`
-- `cache_write_tokens = 0` unless OpenAI exposes it in the relevant route
+- `cache_write_tokens = 0` (OpenAI가 해당 경로에서 노출하지 않는 한)
 - `output_tokens = completion_tokens`
 
 ### Anthropic Direct
 
-Source usage fields:
+소스 사용량 필드:
 
 - `input_tokens`
 - `output_tokens`
 - `cache_read_input_tokens`
 - `cache_creation_input_tokens`
 
-Normalization:
+정규화:
 
 - `input_tokens = input_tokens`
 - `output_tokens = output_tokens`
@@ -126,12 +126,12 @@ Normalization:
 
 ### OpenRouter
 
-Estimate-time usage normalization should use the response usage payload with the same rules as the underlying provider when possible.
+추정 시점의 사용량 정규화는 가능한 경우 기본 제공자와 동일한 규칙으로 응답 사용량 페이로드를 사용해야 합니다.
 
-Reconciliation-time records should also store:
+조정 시점의 레코드는 다음도 저장해야 합니다:
 
 - OpenRouter generation id
-- native token fields when available
+- 가능한 경우 네이티브 토큰 필드
 - `total_cost`
 - `cache_discount`
 - `upstream_inference_cost`
@@ -139,36 +139,36 @@ Reconciliation-time records should also store:
 
 ### Gemini / Vertex
 
-Use official Gemini or Vertex usage fields where available.
+가능한 경우 공식 Gemini 또는 Vertex 사용량 필드를 사용합니다.
 
-If cached content tokens are exposed:
+캐시된 콘텐츠 토큰이 노출되는 경우:
 
-- map them to `cache_read_tokens`
+- `cache_read_tokens`에 매핑
 
-If a route exposes no cache creation metric:
+경로가 캐시 생성 메트릭을 노출하지 않는 경우:
 
-- store `cache_write_tokens = 0`
-- preserve the raw usage payload for later extension
+- `cache_write_tokens = 0` 저장
+- 나중의 확장을 위해 원시 사용량 페이로드 보존
 
-### DeepSeek And Other Direct Providers
+### DeepSeek 및 기타 직접 제공자
 
-Normalize only the fields that are officially exposed.
+공식적으로 노출된 필드만 정규화합니다.
 
-If a provider does not expose cache buckets:
+제공자가 캐시 버킷을 노출하지 않는 경우:
 
-- do not infer them unless the provider explicitly documents how to derive them
+- 제공자가 도출 방법을 명시적으로 문서화하지 않는 한 추론하지 않음
 
-### Subscription / Included-Cost Routes
+### 구독 / 포함 비용 경로
 
-These still use the canonical usage model.
+이들도 정규 사용량 모델을 사용합니다.
 
-Tokens are tracked normally. Cost depends on billing mode, not on whether usage exists.
+토큰은 정상적으로 추적됩니다. 비용은 사용량 존재 여부가 아니라 청구 모드에 따라 달라집니다.
 
-## Billing Route Model
+## 청구 경로 모델
 
-Hermes must stop keying pricing solely by `model`.
+Hermes는 `model`만으로 가격을 키하는 것을 중단해야 합니다.
 
-Introduce a billing route descriptor:
+청구 경로 디스크립터를 도입합니다:
 
 ```python
 @dataclass
@@ -180,7 +180,7 @@ class BillingRoute:
     organization_hint: str | None = None
 ```
 
-`billing_mode` values:
+`billing_mode` 값:
 
 - `official_cost_api`
 - `official_generation_api`
@@ -191,19 +191,19 @@ class BillingRoute:
 - `custom_contract`
 - `unknown`
 
-Examples:
+예시:
 
-- OpenAI direct API with Costs API access: `official_cost_api`
-- Anthropic direct API with Usage & Cost API access: `official_cost_api`
-- OpenRouter request before reconciliation: `official_models_api`
-- OpenRouter request after generation lookup: `official_generation_api`
-- GitHub Copilot style subscription route: `subscription_included`
-- local OpenAI-compatible server: `unknown`
-- enterprise contract with configured rates: `custom_contract`
+- Costs API에 접근 가능한 OpenAI 직접 API: `official_cost_api`
+- Usage & Cost API에 접근 가능한 Anthropic 직접 API: `official_cost_api`
+- 조정 전 OpenRouter 요청: `official_models_api`
+- generation 조회 후 OpenRouter 요청: `official_generation_api`
+- GitHub Copilot 스타일 구독 경로: `subscription_included`
+- 로컬 OpenAI 호환 서버: `unknown`
+- 설정된 요금의 기업 계약: `custom_contract`
 
-## Cost Status Model
+## 비용 상태 모델
 
-Every displayed cost should have:
+표시되는 모든 비용에는 다음이 있어야 합니다:
 
 ```python
 @dataclass
@@ -225,87 +225,87 @@ class CostResult:
     notes: list[str]
 ```
 
-Presentation rules:
+표시 규칙:
 
-- `actual`: show dollar amount as final
-- `estimated`: show dollar amount with estimate labeling
-- `included`: show `included` or `$0.00 (included)` depending on UX choice
-- `unknown`: show `n/a`
+- `actual`: 달러 금액을 최종 값으로 표시
+- `estimated`: 달러 금액을 추정 라벨과 함께 표시
+- `included`: UX 선택에 따라 `included` 또는 `$0.00 (included)` 표시
+- `unknown`: `n/a` 표시
 
-## Official Source Hierarchy
+## 공식 소스 계층
 
-Resolve cost using this order:
+다음 순서로 비용을 해결합니다:
 
-1. Request-level or account-level official billed cost
-2. Official machine-readable model pricing
-3. Official docs snapshot
-4. User override or custom contract
-5. Unknown
+1. 요청 수준 또는 계정 수준의 공식 청구 비용
+2. 공식 기계 판독 가능 모델 가격
+3. 공식 문서 스냅샷
+4. 사용자 재정의 또는 커스텀 계약
+5. 알 수 없음
 
-The system must never skip to a lower level if a higher-confidence source exists for the current billing route.
+시스템은 현재 청구 경로에 대해 더 높은 신뢰도의 소스가 존재하는 경우 절대 더 낮은 수준으로 건너뛰어서는 안 됩니다.
 
-## Provider-Specific Truth Rules
+## 제공자별 진실 규칙
 
 ### OpenAI Direct
 
-Preferred truth:
+선호 진실:
 
-1. Costs API for reconciled spend
-2. Official pricing page for live estimate
+1. 조정된 지출을 위한 Costs API
+2. 실시간 추정을 위한 공식 가격 페이지
 
 ### Anthropic Direct
 
-Preferred truth:
+선호 진실:
 
-1. Usage & Cost API for reconciled spend
-2. Official pricing docs for live estimate
+1. 조정된 지출을 위한 Usage & Cost API
+2. 실시간 추정을 위한 공식 가격 문서
 
 ### OpenRouter
 
-Preferred truth:
+선호 진실:
 
-1. `GET /api/v1/generation` for reconciled `total_cost`
-2. `GET /api/v1/models` pricing for live estimate
+1. 조정된 `total_cost`를 위한 `GET /api/v1/generation`
+2. 실시간 추정을 위한 `GET /api/v1/models` 가격
 
-Do not use underlying provider public pricing as the source of truth for OpenRouter billing.
+OpenRouter 청구의 진실 소스로 기본 제공자의 공개 가격을 사용하지 마십시오.
 
 ### Gemini / Vertex
 
-Preferred truth:
+선호 진실:
 
-1. official billing export or billing API for reconciled spend when available for the route
-2. official pricing docs for estimate
+1. 해당 경로에서 사용 가능한 경우 조정된 지출을 위한 공식 청구 내보내기 또는 청구 API
+2. 추정을 위한 공식 가격 문서
 
 ### DeepSeek
 
-Preferred truth:
+선호 진실:
 
-1. official machine-readable cost source if available in the future
-2. official pricing docs snapshot today
+1. 향후 사용 가능해질 경우 공식 기계 판독 가능 비용 소스
+2. 현재는 공식 가격 문서 스냅샷
 
-### Subscription-Included Routes
+### 구독 포함 경로
 
-Preferred truth:
+선호 진실:
 
-1. explicit route config marking the model as included in subscription
+1. 모델을 구독에 포함된 것으로 표시하는 명시적 경로 설정
 
-These should display `included`, not an API list-price estimate.
+API 목록 가격 추정이 아닌 `included`를 표시해야 합니다.
 
-### Custom Endpoint / Local Model
+### 커스텀 엔드포인트 / 로컬 모델
 
-Preferred truth:
+선호 진실:
 
-1. user override
-2. custom contract config
-3. unknown
+1. 사용자 재정의
+2. 커스텀 계약 설정
+3. 알 수 없음
 
-These should default to `unknown`.
+기본적으로 `unknown`으로 표시해야 합니다.
 
-## Pricing Catalog
+## 가격 카탈로그
 
-Replace the current `MODEL_PRICING` dict with a richer pricing catalog.
+현재 `MODEL_PRICING` dict를 더 풍부한 가격 카탈로그로 교체합니다.
 
-Suggested record:
+제안 레코드:
 
 ```python
 @dataclass
@@ -327,20 +327,20 @@ class PricingEntry:
     pricing_version: str | None = None
 ```
 
-The catalog should be route-aware:
+카탈로그는 경로를 인식해야 합니다:
 
 - `openai:gpt-5`
 - `anthropic:claude-opus-4-6`
 - `openrouter:anthropic/claude-opus-4.6`
 - `copilot:gpt-4o`
 
-This avoids conflating direct-provider billing with aggregator billing.
+이를 통해 직접 제공자 청구와 중개자 청구를 혼동하지 않습니다.
 
-## Pricing Sync Architecture
+## 가격 동기화 아키텍처
 
-Introduce a pricing sync subsystem instead of manually maintaining a single hardcoded table.
+수동으로 유지되는 단일 하드코딩 테이블 대신 가격 동기화 서브시스템을 도입합니다.
 
-Suggested modules:
+제안 모듈:
 
 - `agent/pricing/catalog.py`
 - `agent/pricing/sources.py`
@@ -348,49 +348,49 @@ Suggested modules:
 - `agent/pricing/reconcile.py`
 - `agent/pricing/types.py`
 
-### Sync Sources
+### 동기화 소스
 
 - OpenRouter models API
-- official provider docs snapshots where no API exists
-- user overrides from config
+- API가 없는 경우 공식 제공자 문서 스냅샷
+- 설정에서의 사용자 재정의
 
-### Sync Output
+### 동기화 출력
 
-Cache pricing entries locally with:
+가격 항목을 다음과 함께 로컬에 캐시합니다:
 
-- source URL
-- fetch timestamp
-- version/hash
-- confidence/source type
+- 소스 URL
+- 가져오기 타임스탬프
+- 버전/해시
+- 신뢰도/소스 유형
 
-### Sync Frequency
+### 동기화 빈도
 
-- startup warm cache
-- background refresh every 6 to 24 hours depending on source
-- manual `hermes pricing sync`
+- 시작 시 캐시 워밍
+- 소스에 따라 6~24시간마다 백그라운드 새로고침
+- 수동 `hermes pricing sync`
 
-## Reconciliation Architecture
+## 조정 아키텍처
 
-Live requests may produce only an estimate initially. Hermes should reconcile them later when a provider exposes actual billed cost.
+실시간 요청은 초기에 추정치만 생성할 수 있습니다. Hermes는 제공자가 실제 청구 비용을 노출할 때 나중에 조정해야 합니다.
 
-Suggested flow:
+제안 흐름:
 
-1. Agent call completes.
-2. Hermes stores canonical usage plus reconciliation ids.
-3. Hermes computes an immediate estimate if a pricing source exists.
-4. A reconciliation worker fetches actual cost when supported.
-5. Session and message records are updated with `actual` cost.
+1. 에이전트 호출 완료.
+2. Hermes가 정규 사용량과 조정 ID를 저장.
+3. Hermes가 가격 소스가 있는 경우 즉시 추정치를 계산.
+4. 조정 워커가 지원되는 경우 실제 비용을 가져옴.
+5. 세션 및 메시지 레코드가 `actual` 비용으로 업데이트됨.
 
-This can run:
+다음과 같이 실행할 수 있습니다:
 
-- inline for cheap lookups
-- asynchronously for delayed provider accounting
+- 저렴한 조회의 경우 인라인
+- 지연된 제공자 회계의 경우 비동기적
 
-## Persistence Changes
+## 영속성 변경
 
-Session storage should stop storing only aggregate prompt/completion totals.
+세션 저장소는 집계된 prompt/completion 합계만 저장하는 것을 중단해야 합니다.
 
-Add fields for both usage and cost certainty:
+사용량과 비용 확실성 모두에 대한 필드를 추가합니다:
 
 - `input_tokens`
 - `output_tokens`
@@ -405,7 +405,7 @@ Add fields for both usage and cost certainty:
 - `billing_provider`
 - `billing_mode`
 
-If schema expansion is too large for one PR, add a new pricing events table:
+스키마 확장이 하나의 PR에 너무 큰 경우 새로운 가격 이벤트 테이블을 추가합니다:
 
 ```text
 session_cost_events
@@ -428,45 +428,45 @@ session_cost_events
   updated_at
 ```
 
-## Hermes Touchpoints
+## Hermes 접점
 
 ### `run_agent.py`
 
-Current responsibility:
+현재 역할:
 
-- parse raw provider usage
-- update session token counters
+- 원시 제공자 사용량 파싱
+- 세션 토큰 카운터 업데이트
 
-New responsibility:
+새 역할:
 
-- build `CanonicalUsage`
-- update canonical counters
-- store reconciliation ids
-- emit usage event to pricing subsystem
+- `CanonicalUsage` 빌드
+- 정규 카운터 업데이트
+- 조정 ID 저장
+- 가격 서브시스템에 사용량 이벤트 발행
 
 ### `agent/usage_pricing.py`
 
-Current responsibility:
+현재 역할:
 
-- static lookup table
-- direct cost arithmetic
+- 정적 조회 테이블
+- 직접 비용 산술
 
-New responsibility:
+새 역할:
 
-- move or replace with pricing catalog facade
-- no fuzzy model-family heuristics
-- no direct pricing without billing-route context
+- 가격 카탈로그 파사드로 이동 또는 교체
+- 퍼지 모델 패밀리 휴리스틱 없음
+- 청구 경로 컨텍스트 없이 직접 가격 책정 없음
 
 ### `cli.py`
 
-Current responsibility:
+현재 역할:
 
-- compute session cost directly from prompt/completion totals
+- prompt/completion 합계에서 직접 세션 비용 계산
 
-New responsibility:
+새 역할:
 
-- display `CostResult`
-- show status badges:
+- `CostResult` 표시
+- 상태 배지 표시:
   - `actual`
   - `estimated`
   - `included`
@@ -474,56 +474,56 @@ New responsibility:
 
 ### `agent/insights.py`
 
-Current responsibility:
+현재 역할:
 
-- recompute historical estimates from static pricing
+- 정적 가격에서 과거 추정치 재계산
 
-New responsibility:
+새 역할:
 
-- aggregate stored pricing events
-- prefer actual cost over estimate
-- surface estimates only when reconciliation is unavailable
+- 저장된 가격 이벤트 집계
+- 추정보다 실제 비용 선호
+- 조정을 사용할 수 없는 경우에만 추정치 표시
 
-## UX Rules
+## UX 규칙
 
-### Status Bar
+### 상태 바
 
-Show one of:
+다음 중 하나를 표시합니다:
 
 - `$1.42`
 - `~$1.42`
 - `included`
 - `cost n/a`
 
-Where:
+여기서:
 
-- `$1.42` means `actual`
-- `~$1.42` means `estimated`
-- `included` means subscription-backed or explicitly zero-cost route
-- `cost n/a` means unknown
+- `$1.42`는 `actual`을 의미
+- `~$1.42`는 `estimated`를 의미
+- `included`는 구독 기반 또는 명시적 무비용 경로를 의미
+- `cost n/a`는 알 수 없음을 의미
 
 ### `/usage`
 
-Show:
+표시 항목:
 
-- token buckets
-- estimated cost
-- actual cost if available
-- cost status
-- pricing source
+- 토큰 버킷
+- 추정 비용
+- 가능한 경우 실제 비용
+- 비용 상태
+- 가격 소스
 
 ### `/insights`
 
-Aggregate:
+집계 항목:
 
-- actual cost totals
-- estimated-only totals
-- unknown-cost sessions count
-- included-cost sessions count
+- 실제 비용 합계
+- 추정 전용 합계
+- 비용 미확인 세션 수
+- 포함 비용 세션 수
 
-## Config And Overrides
+## 설정 및 재정의
 
-Add user-configurable pricing overrides in config:
+설정에 사용자 설정 가능한 가격 재정의를 추가합니다:
 
 ```yaml
 pricing:
@@ -545,64 +545,64 @@ pricing:
       model: "*"
 ```
 
-Overrides must win over catalog defaults for the matching billing route.
+재정의는 일치하는 청구 경로에 대해 카탈로그 기본값보다 우선해야 합니다.
 
-## Rollout Plan
+## 롤아웃 계획
 
-### Phase 1
+### 1단계
 
-- add canonical usage model
-- split cache token buckets in `run_agent.py`
-- stop pricing cache-inflated prompt totals
-- preserve current UI with improved backend math
+- 정규 사용량 모델 추가
+- `run_agent.py`에서 캐시 토큰 버킷 분리
+- 캐시가 부풀린 프롬프트 합계에 대한 가격 책정 중단
+- 개선된 백엔드 수학으로 현재 UI 유지
 
-### Phase 2
+### 2단계
 
-- add route-aware pricing catalog
-- integrate OpenRouter models API sync
-- add `estimated` vs `included` vs `unknown`
+- 경로 인식 가격 카탈로그 추가
+- OpenRouter models API 동기화 통합
+- `estimated` vs `included` vs `unknown` 추가
 
-### Phase 3
+### 3단계
 
-- add reconciliation for OpenRouter generation cost
-- add actual cost persistence
-- update `/insights` to prefer actual cost
+- OpenRouter generation 비용 조정 추가
+- 실제 비용 영속성 추가
+- `/insights`를 실제 비용 선호로 업데이트
 
-### Phase 4
+### 4단계
 
-- add direct OpenAI and Anthropic reconciliation paths
-- add user overrides and contract pricing
-- add pricing sync CLI command
+- 직접 OpenAI 및 Anthropic 조정 경로 추가
+- 사용자 재정의 및 계약 가격 추가
+- 가격 동기화 CLI 명령 추가
 
-## Testing Strategy
+## 테스트 전략
 
-Add tests for:
+다음에 대한 테스트 추가:
 
-- OpenAI cached token subtraction
-- Anthropic cache read/write separation
-- OpenRouter estimated vs actual reconciliation
-- subscription-backed models showing `included`
-- custom endpoints showing `n/a`
-- override precedence
-- stale catalog fallback behavior
+- OpenAI 캐시 토큰 차감
+- Anthropic 캐시 읽기/쓰기 분리
+- OpenRouter 추정 vs 실제 조정
+- 구독 기반 모델의 `included` 표시
+- 커스텀 엔드포인트의 `n/a` 표시
+- 재정의 우선순위
+- 오래된 카탈로그 폴백 동작
 
-Current tests that assume heuristic pricing should be replaced with route-aware expectations.
+휴리스틱 가격을 가정하는 현재 테스트는 경로 인식 기대값으로 대체해야 합니다.
 
-## Non-Goals
+## 비목표
 
-- exact enterprise billing reconstruction without an official source or user override
-- backfilling perfect historical cost for old sessions that lack cache bucket data
-- scraping arbitrary provider web pages at request time
+- 공식 소스 또는 사용자 재정의 없이 정확한 기업 청구 재구성
+- 캐시 버킷 데이터가 없는 이전 세션에 대한 완벽한 과거 비용 역채움
+- 요청 시점에 임의의 제공자 웹 페이지 스크래핑
 
-## Recommendation
+## 권장 사항
 
-Do not expand the existing `MODEL_PRICING` dict.
+기존 `MODEL_PRICING` dict를 확장하지 마십시오.
 
-That path cannot satisfy the product requirement. Hermes should instead migrate to:
+그 방식은 제품 요구 사항을 충족할 수 없습니다. Hermes는 대신 다음으로 마이그레이션해야 합니다:
 
-- canonical usage normalization
-- route-aware pricing sources
-- estimate-then-reconcile cost lifecycle
-- explicit certainty states in the UI
+- 정규 사용량 정규화
+- 경로 인식 가격 소스
+- 추정 후 조정 비용 생명주기
+- UI에서 명시적 확실성 상태
 
-This is the minimum architecture that makes the statement "Hermes pricing is backed by official sources where possible, and otherwise clearly labeled" defensible.
+이것이 "Hermes 가격은 가능한 경우 공식 소스로 뒷받침되며, 그렇지 않으면 명확히 라벨링됩니다"라는 진술을 방어 가능하게 만드는 최소 아키텍처입니다.

@@ -1,131 +1,131 @@
-# Hermes-Agent Atropos Environments
+# Hermes-Agent Atropos 환경
 
-This directory contains the integration layer between **hermes-agent's** tool-calling capabilities and the **Atropos** RL training framework. It provides everything needed to run agentic LLMs through multi-turn tool-calling loops, score their output with arbitrary reward functions, and feed results into Atropos for training or evaluation.
+이 디렉토리는 **hermes-agent**의 도구 호출 기능과 **Atropos** RL 훈련 프레임워크 간의 통합 레이어를 포함합니다. 에이전트 LLM을 다중 턴 도구 호출 루프를 통해 실행하고, 임의의 보상 함수로 출력을 평가하며, 결과를 Atropos에 전달하여 훈련 또는 평가하는 데 필요한 모든 것을 제공합니다.
 
-## Architecture Overview
+## 아키텍처 개요
 
 ```
                         Atropos Framework
                     ┌───────────────────────┐
                     │       BaseEnv          │  (atroposlib)
-                    │  - Server management   │
-                    │  - Worker scheduling   │
-                    │  - Wandb logging       │
+                    │  - 서버 관리           │
+                    │  - 워커 스케줄링       │
+                    │  - Wandb 로깅          │
                     │  - CLI (serve/process/ │
                     │    evaluate)           │
                     └───────────┬───────────┘
-                                │ inherits
+                                │ 상속
                     ┌───────────┴───────────┐
                     │  HermesAgentBaseEnv    │  hermes_base_env.py
-                    │  - Terminal backend    │
-                    │  - Tool resolution     │
-                    │  - Agent loop          │
+                    │  - 터미널 백엔드       │
+                    │  - 도구 해석           │
+                    │  - 에이전트 루프       │
                     │  - ToolContext          │
-                    │  - Async patches       │
+                    │  - 비동기 패치         │
                     └───────────┬───────────┘
-                                │ inherits
+                                │ 상속
               ┌─────────────────┼─────────────────┐
               │                 │                  │
      TerminalTestEnv     HermesSweEnv    TerminalBench2EvalEnv
-     (stack testing)     (SWE training)   (TB2 benchmark eval)
+     (스택 테스트)       (SWE 훈련)      (TB2 벤치마크 평가)
 ```
 
-### Inheritance Chain
+### 상속 체인
 
-**BaseEnv** (from `atroposlib`) is the Atropos base class. It provides:
-- Server management (OpenAI-compatible API servers, VLLM, SGLang)
-- Worker scheduling for parallel rollouts
-- Wandb integration for metrics and rollout logging
-- CLI interface with three subcommands: `serve`, `process`, `evaluate`
-- `evaluate_log()` for saving eval results to JSON + samples.jsonl
+**BaseEnv** (`atroposlib` 제공)은 Atropos 기본 클래스입니다. 다음을 제공합니다:
+- 서버 관리 (OpenAI 호환 API 서버, VLLM, SGLang)
+- 병렬 롤아웃을 위한 워커 스케줄링
+- 메트릭 및 롤아웃 로깅을 위한 Wandb 통합
+- 세 가지 하위 명령을 갖는 CLI 인터페이스: `serve`, `process`, `evaluate`
+- 평가 결과를 JSON + samples.jsonl로 저장하는 `evaluate_log()`
 
-**HermesAgentBaseEnv** (`hermes_base_env.py`) extends BaseEnv with hermes-agent specifics:
-- Sets `os.environ["TERMINAL_ENV"]` to configure the terminal backend (local, docker, modal, daytona, ssh, singularity)
-- Resolves hermes-agent toolsets via `_resolve_tools_for_group()` (calls `get_tool_definitions()` which queries `tools/registry.py`)
-- Implements `collect_trajectory()` which runs the full agent loop and computes rewards
-- Supports two-phase operation (Phase 1: OpenAI server, Phase 2: VLLM ManagedServer)
-- Applies monkey patches for async-safe tool operation at import time
+**HermesAgentBaseEnv** (`hermes_base_env.py`)는 BaseEnv를 hermes-agent 전용 기능으로 확장합니다:
+- `os.environ["TERMINAL_ENV"]`를 설정하여 터미널 백엔드를 구성 (local, docker, modal, daytona, ssh, singularity)
+- `_resolve_tools_for_group()`을 통해 hermes-agent 도구 세트를 해석 (`get_tool_definitions()`를 호출하여 `tools/registry.py`를 쿼리)
+- 전체 에이전트 루프를 실행하고 보상을 계산하는 `collect_trajectory()` 구현
+- 2단계 운영 지원 (1단계: OpenAI 서버, 2단계: VLLM ManagedServer)
+- 임포트 시 비동기 안전 도구 운영을 위한 몽키 패치 적용
 
-Concrete environments inherit from `HermesAgentBaseEnv` and implement:
-- `setup()` -- Load dataset, initialize state
-- `get_next_item()` -- Return the next item for rollout
-- `format_prompt()` -- Convert a dataset item into the user message
-- `compute_reward()` -- Score the rollout using ToolContext
-- `evaluate()` -- Periodic evaluation logic
+구체적인 환경은 `HermesAgentBaseEnv`를 상속받아 다음을 구현합니다:
+- `setup()` -- 데이터셋 로드, 상태 초기화
+- `get_next_item()` -- 롤아웃을 위한 다음 항목 반환
+- `format_prompt()` -- 데이터셋 항목을 사용자 메시지로 변환
+- `compute_reward()` -- ToolContext를 사용하여 롤아웃 점수 산정
+- `evaluate()` -- 주기적 평가 로직
 
-## Core Components
+## 핵심 구성 요소
 
-### Agent Loop (`agent_loop.py`)
+### 에이전트 루프 (`agent_loop.py`)
 
-`HermesAgentLoop` is the reusable multi-turn agent engine. It runs the same pattern as hermes-agent's `run_agent.py`:
+`HermesAgentLoop`는 재사용 가능한 다중 턴 에이전트 엔진입니다. hermes-agent의 `run_agent.py`와 동일한 패턴을 실행합니다:
 
-1. Send messages + tools to the API via `server.chat_completion()`
-2. If the response contains `tool_calls`, execute each one via `handle_function_call()` (which delegates to `tools/registry.py`'s `dispatch()`)
-3. Append tool results to the conversation and go back to step 1
-4. If the response has no tool_calls, the agent is done
+1. `server.chat_completion()`을 통해 메시지 + 도구를 API로 전송
+2. 응답에 `tool_calls`가 포함되면 `handle_function_call()`을 통해 각각 실행 (`tools/registry.py`의 `dispatch()`에 위임)
+3. 도구 결과를 대화에 추가하고 1단계로 복귀
+4. 응답에 tool_calls가 없으면 에이전트 완료
 
-Tool calls are executed in a thread pool (`run_in_executor`) so backends that use `asyncio.run()` internally (Modal, Docker) don't deadlock inside Atropos's event loop.
+도구 호출은 스레드 풀(`run_in_executor`)에서 실행되므로, 내부적으로 `asyncio.run()`을 사용하는 백엔드(Modal, Docker)가 Atropos의 이벤트 루프 내에서 데드락을 일으키지 않습니다.
 
-Returns an `AgentResult` containing the full conversation history, turn count, reasoning content per turn, tool errors, and optional ManagedServer state (for Phase 2).
+전체 대화 기록, 턴 수, 턴별 추론 내용, 도구 오류, 그리고 선택적 ManagedServer 상태(2단계용)를 포함하는 `AgentResult`를 반환합니다.
 
-### Tool Context (`tool_context.py`)
+### 도구 컨텍스트 (`tool_context.py`)
 
-`ToolContext` is a per-rollout handle that gives reward/verification functions direct access to **all** hermes-agent tools, scoped to the rollout's `task_id`. The same `task_id` means the terminal/browser session is the SAME one the model used during its rollout -- all state (files, processes, browser tabs) is preserved.
+`ToolContext`는 롤아웃별 핸들로, 보상/검증 함수가 롤아웃의 `task_id`로 범위가 지정된 **모든** hermes-agent 도구에 직접 접근할 수 있게 합니다. 동일한 `task_id`는 터미널/브라우저 세션이 모델이 롤아웃 중에 사용한 것과 동일한 세션임을 의미합니다 -- 모든 상태(파일, 프로세스, 브라우저 탭)가 보존됩니다.
 
 ```python
 async def compute_reward(self, item, result, ctx: ToolContext):
-    # Run tests in the model's terminal sandbox
+    # 모델의 터미널 샌드박스에서 테스트 실행
     test = ctx.terminal("pytest -v")
     if test["exit_code"] == 0:
         return 1.0
 
-    # Check if a file was created
+    # 파일이 생성되었는지 확인
     content = ctx.read_file("/workspace/solution.py")
     if content.get("content"):
         return 0.5
 
-    # Download files locally for verification (binary-safe)
+    # 검증을 위해 로컬로 파일 다운로드 (바이너리 안전)
     ctx.download_file("/remote/output.bin", "/local/output.bin")
 
     return 0.0
 ```
 
-Available methods:
-- **Terminal**: `terminal(command, timeout)` -- run shell commands
-- **Files**: `read_file(path)`, `write_file(path, content)`, `search(query, path)`
-- **Transfers**: `upload_file()`, `upload_dir()`, `download_file()`, `download_dir()` -- binary-safe file transfers between host and sandbox
-- **Web**: `web_search(query)`, `web_extract(urls)`
-- **Browser**: `browser_navigate(url)`, `browser_snapshot()`
-- **Generic**: `call_tool(name, args)` -- call any hermes-agent tool by name
-- **Cleanup**: `cleanup()` -- release all resources (called automatically after `compute_reward`)
+사용 가능한 메서드:
+- **터미널**: `terminal(command, timeout)` -- 셸 명령 실행
+- **파일**: `read_file(path)`, `write_file(path, content)`, `search(query, path)`
+- **전송**: `upload_file()`, `upload_dir()`, `download_file()`, `download_dir()` -- 호스트와 샌드박스 간 바이너리 안전 파일 전송
+- **웹**: `web_search(query)`, `web_extract(urls)`
+- **브라우저**: `browser_navigate(url)`, `browser_snapshot()`
+- **범용**: `call_tool(name, args)` -- 이름으로 모든 hermes-agent 도구 호출
+- **정리**: `cleanup()` -- 모든 리소스 해제 (`compute_reward` 이후 자동 호출)
 
-### Patches (`patches.py`)
+### 패치 (`patches.py`)
 
-**Problem**: Some hermes-agent tools use `asyncio.run()` internally (e.g., the Modal backend). This crashes when called from inside Atropos's event loop because `asyncio.run()` cannot be nested.
+**문제**: 일부 hermes-agent 도구가 내부적으로 `asyncio.run()`을 사용합니다(예: Modal 백엔드). 이는 Atropos의 이벤트 루프 내에서 호출될 때 충돌합니다. `asyncio.run()`은 중첩할 수 없기 때문입니다.
 
-**Solution**: `ModalEnvironment` uses a dedicated `_AsyncWorker` background thread with its own event loop. The calling code sees a sync interface, but internally all async Modal SDK calls happen on the worker thread so they don't conflict with Atropos's loop. This is built directly into `tools/environments/modal.py` — no monkey-patching required.
+**해결책**: `ModalEnvironment`는 자체 이벤트 루프를 가진 전용 `_AsyncWorker` 백그라운드 스레드를 사용합니다. 호출 코드는 동기 인터페이스를 보지만, 내부적으로 모든 비동기 Modal SDK 호출은 워커 스레드에서 수행되어 Atropos의 루프와 충돌하지 않습니다. 이는 `tools/environments/modal.py`에 직접 내장되어 있으며 -- 몽키 패칭이 필요하지 않습니다.
 
-`patches.py` is now a no-op (kept for backward compatibility with imports).
+`patches.py`는 현재 아무 작업도 수행하지 않습니다 (임포트와의 하위 호환성을 위해 유지).
 
-### Tool Call Parsers (`tool_call_parsers/`)
+### 도구 호출 파서 (`tool_call_parsers/`)
 
-Client-side parsers that extract structured `tool_calls` from raw model output text. Used in **Phase 2** (VLLM server type) where ManagedServer's `/generate` endpoint returns raw text without tool call parsing.
+원시 모델 출력 텍스트에서 구조화된 `tool_calls`를 추출하는 클라이언트 측 파서입니다. ManagedServer의 `/generate` 엔드포인트가 도구 호출 파싱 없이 원시 텍스트를 반환하는 **2단계** (VLLM 서버 타입)에서 사용됩니다.
 
-Each parser is a standalone reimplementation of the corresponding VLLM parser's `extract_tool_calls()` logic. No VLLM dependency -- only standard library (`re`, `json`, `uuid`) and `openai` types.
+각 파서는 해당 VLLM 파서의 `extract_tool_calls()` 로직을 독립적으로 재구현한 것입니다. VLLM 의존성 없음 -- 표준 라이브러리(`re`, `json`, `uuid`)와 `openai` 타입만 사용합니다.
 
-Available parsers:
-- `hermes` -- Hermes/ChatML `<tool_call>` XML format
-- `mistral` -- Mistral `[TOOL_CALLS]` format
-- `llama3_json` -- Llama 3 JSON tool calling
-- `qwen` -- Qwen tool calling format
-- `qwen3_coder` -- Qwen3 Coder format
-- `deepseek_v3` -- DeepSeek V3 format
-- `deepseek_v3_1` -- DeepSeek V3.1 format
-- `kimi_k2` -- Kimi K2 format
-- `longcat` -- Longcat format
-- `glm45` / `glm47` -- GLM model formats
+사용 가능한 파서:
+- `hermes` -- Hermes/ChatML `<tool_call>` XML 형식
+- `mistral` -- Mistral `[TOOL_CALLS]` 형식
+- `llama3_json` -- Llama 3 JSON 도구 호출
+- `qwen` -- Qwen 도구 호출 형식
+- `qwen3_coder` -- Qwen3 Coder 형식
+- `deepseek_v3` -- DeepSeek V3 형식
+- `deepseek_v3_1` -- DeepSeek V3.1 형식
+- `kimi_k2` -- Kimi K2 형식
+- `longcat` -- Longcat 형식
+- `glm45` / `glm47` -- GLM 모델 형식
 
-Usage:
+사용법:
 ```python
 from environments.tool_call_parsers import get_parser
 
@@ -133,39 +133,39 @@ parser = get_parser("hermes")
 content, tool_calls = parser.parse(raw_model_output)
 ```
 
-In Phase 1 (OpenAI server type), these parsers are not needed -- the server handles tool call parsing natively.
+1단계 (OpenAI 서버 타입)에서는 서버가 도구 호출 파싱을 기본적으로 처리하므로 이 파서들이 필요하지 않습니다.
 
-## Two-Phase Operation
+## 2단계 운영
 
-### Phase 1: OpenAI Server (Evaluation / SFT Data Generation)
+### 1단계: OpenAI 서버 (평가 / SFT 데이터 생성)
 
-Uses `server.chat_completion()` with `tools=` parameter. The server (VLLM, SGLang, OpenRouter, OpenAI) handles tool call parsing natively. Returns `ChatCompletion` objects with structured `tool_calls`.
+`tools=` 매개변수와 함께 `server.chat_completion()`을 사용합니다. 서버(VLLM, SGLang, OpenRouter, OpenAI)가 도구 호출 파싱을 기본적으로 처리합니다. 구조화된 `tool_calls`가 포함된 `ChatCompletion` 객체를 반환합니다.
 
-- Good for: evaluation, SFT data generation, testing
-- Run with: `serve` (with `run-api`), `process`, or `evaluate` subcommands
-- Placeholder tokens are created for the Atropos pipeline
+- 적합한 용도: 평가, SFT 데이터 생성, 테스트
+- 실행 방법: `serve` (`run-api` 포함), `process`, 또는 `evaluate` 하위 명령
+- Atropos 파이프라인용 플레이스홀더 토큰이 생성됩니다
 
-### Phase 2: VLLM ManagedServer (Full RL Training)
+### 2단계: VLLM ManagedServer (전체 RL 훈련)
 
-Uses ManagedServer for exact token IDs + logprobs via `/generate`. Client-side tool call parser (from `tool_call_parsers/`) reconstructs structured `tool_calls` from raw output.
+ManagedServer를 사용하여 `/generate`를 통해 정확한 토큰 ID + logprobs를 획득합니다. 클라이언트 측 도구 호출 파서(`tool_call_parsers/`)가 원시 출력에서 구조화된 `tool_calls`를 재구성합니다.
 
-- Good for: full RL training with GRPO/PPO
-- Run with: `serve` subcommand
-- Real tokens, masks, and logprobs flow through the pipeline
+- 적합한 용도: GRPO/PPO를 사용한 전체 RL 훈련
+- 실행 방법: `serve` 하위 명령
+- 실제 토큰, 마스크, logprobs가 파이프라인을 통해 전달됩니다
 
-## Directory Structure
+## 디렉토리 구조
 
 ```
 environments/
-├── README.md                     # This file
-├── __init__.py                   # Package exports
-├── hermes_base_env.py            # Abstract base (HermesAgentBaseEnv)
-├── agent_loop.py                 # Multi-turn agent engine (HermesAgentLoop)
-├── tool_context.py               # Per-rollout tool access for reward functions
-├── patches.py                    # Async-safety patches for Modal backend
+├── README.md                     # 이 파일
+├── __init__.py                   # 패키지 내보내기
+├── hermes_base_env.py            # 추상 기본 클래스 (HermesAgentBaseEnv)
+├── agent_loop.py                 # 다중 턴 에이전트 엔진 (HermesAgentLoop)
+├── tool_context.py               # 보상 함수용 롤아웃별 도구 접근
+├── patches.py                    # Modal 백엔드용 비동기 안전 패치
 │
-├── tool_call_parsers/            # Phase 2 client-side parsers
-│   ├── __init__.py               # Registry + base class
+├── tool_call_parsers/            # 2단계 클라이언트 측 파서
+│   ├── __init__.py               # 레지스트리 + 기본 클래스
 │   ├── hermes_parser.py
 │   ├── mistral_parser.py
 │   ├── llama_parser.py
@@ -178,40 +178,40 @@ environments/
 │   ├── glm45_parser.py
 │   └── glm47_parser.py
 │
-├── terminal_test_env/            # Stack validation environment
+├── terminal_test_env/            # 스택 검증 환경
 │   └── terminal_test_env.py
 │
-├── hermes_swe_env/               # SWE-bench style training environment
+├── hermes_swe_env/               # SWE-bench 스타일 훈련 환경
 │   └── hermes_swe_env.py
 │
-└── benchmarks/                   # Evaluation benchmarks
-    ├── terminalbench_2/          # 89 terminal tasks, Modal sandboxes
+└── benchmarks/                   # 평가 벤치마크
+    ├── terminalbench_2/          # 89개 터미널 작업, Modal 샌드박스
     │   └── terminalbench2_env.py
-    ├── tblite/                   # 100 calibrated tasks (fast TB2 proxy)
+    ├── tblite/                   # 100개 교정된 작업 (빠른 TB2 프록시)
     │   └── tblite_env.py
-    └── yc_bench/                 # Long-horizon strategic benchmark
+    └── yc_bench/                 # 장기 전략 벤치마크
         └── yc_bench_env.py
 ```
 
-## Concrete Environments
+## 구체적 환경
 
 ### TerminalTestEnv (`terminal_test_env/`)
 
-A self-contained environment with inline tasks (no external dataset needed) for validating the full stack end-to-end. Each task asks the model to create a file at a known path, and the verifier checks the content matches.
+인라인 작업이 포함된 자체 완결형 환경(외부 데이터셋 불필요)으로, 전체 스택을 엔드투엔드로 검증합니다. 각 작업은 모델에게 알려진 경로에 파일을 생성하도록 요청하며, 검증기가 내용이 일치하는지 확인합니다.
 
 ```bash
-# Serve mode (needs run-api)
+# Serve 모드 (run-api 필요)
 run-api
 python environments/terminal_test_env/terminal_test_env.py serve
 
-# Process mode (no run-api, saves to JSONL)
+# Process 모드 (run-api 불필요, JSONL로 저장)
 python environments/terminal_test_env/terminal_test_env.py process \
     --env.data_path_to_save_groups terminal_test_output.jsonl
 ```
 
 ### HermesSweEnv (`hermes_swe_env/`)
 
-SWE-bench style training environment. The model gets a coding task, uses terminal + file + web tools to solve it, and the reward function runs tests in the same Modal sandbox.
+SWE-bench 스타일 훈련 환경입니다. 모델이 코딩 작업을 받고, 터미널 + 파일 + 웹 도구를 사용하여 해결하며, 보상 함수가 동일한 Modal 샌드박스에서 테스트를 실행합니다.
 
 ```bash
 python environments/hermes_swe_env/hermes_swe_env.py serve \
@@ -222,43 +222,43 @@ python environments/hermes_swe_env/hermes_swe_env.py serve \
 
 ### TerminalBench2EvalEnv (`benchmarks/terminalbench_2/`)
 
-**Eval-only** environment for the Terminal-Bench 2.0 benchmark (89 tasks). Each task gets a pre-built Docker Hub image, a natural language instruction, and a test suite. The agent uses terminal + file tools to solve the task, then the test suite verifies correctness.
+Terminal-Bench 2.0 벤치마크(89개 작업)를 위한 **평가 전용** 환경입니다. 각 작업은 사전 빌드된 Docker Hub 이미지, 자연어 지시문, 테스트 스위트를 제공받습니다. 에이전트는 터미널 + 파일 도구를 사용하여 작업을 해결한 후, 테스트 스위트가 정확성을 검증합니다.
 
-Follows the standard Atropos eval pattern (like GPQA, MMLU, etc.):
-- Run via `evaluate` subcommand (no `run-api` needed)
-- `setup()` loads the dataset, `evaluate()` runs all tasks
-- `rollout_and_score_eval()` handles per-task agent loop + test verification
-- Downloads verifier output locally for reliable reward checking (Harbor pattern)
+표준 Atropos 평가 패턴(GPQA, MMLU 등)을 따릅니다:
+- `evaluate` 하위 명령으로 실행 (`run-api` 불필요)
+- `setup()`이 데이터셋을 로드하고, `evaluate()`가 모든 작업을 실행
+- `rollout_and_score_eval()`이 작업별 에이전트 루프 + 테스트 검증을 처리
+- 안정적인 보상 확인을 위해 검증기 출력을 로컬로 다운로드 (Harbor 패턴)
 
 ```bash
-# Run full benchmark
+# 전체 벤치마크 실행
 python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
     --openai.model_name anthropic/claude-opus-4.6
 
-# Run subset of tasks
+# 작업 부분 집합 실행
 python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
     --openai.model_name anthropic/claude-opus-4.6 \
     --env.task_filter fix-git,git-multibranch
 
-# Skip specific tasks
+# 특정 작업 건너뛰기
 python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
     --openai.model_name anthropic/claude-opus-4.6 \
     --env.skip_tasks heavy-task,slow-task
 ```
 
-## Creating a New Environment
+## 새 환경 만들기
 
-### Training Environment
+### 훈련 환경
 
-1. Create a new directory under `environments/`
-2. Create your env file inheriting from `HermesAgentBaseEnv`
-3. Implement the four abstract methods + `evaluate()`
+1. `environments/` 아래에 새 디렉토리 생성
+2. `HermesAgentBaseEnv`를 상속받는 환경 파일 생성
+3. 네 가지 추상 메서드 + `evaluate()` 구현
 
 ```python
 from environments.hermes_base_env import HermesAgentBaseEnv, HermesAgentEnvConfig
 
 class MyEnvConfig(HermesAgentEnvConfig):
-    pass  # Add custom fields as needed
+    pass  # 필요에 따라 커스텀 필드 추가
 
 class MyEnv(HermesAgentBaseEnv):
     name = "my-env"
@@ -269,7 +269,7 @@ class MyEnv(HermesAgentBaseEnv):
         env_config = MyEnvConfig(
             enabled_toolsets=["terminal", "file"],
             terminal_backend="modal",
-            # ... other config
+            # ... 기타 설정
         )
         server_configs = [APIServerConfig(...)]
         return env_config, server_configs
@@ -287,38 +287,38 @@ class MyEnv(HermesAgentBaseEnv):
         return item["instruction"]
 
     async def compute_reward(self, item, result, ctx):
-        # ctx gives you full tool access to the rollout's sandbox
+        # ctx를 통해 롤아웃의 샌드박스에 대한 전체 도구 접근 가능
         test = ctx.terminal("pytest -v")
         return 1.0 if test["exit_code"] == 0 else 0.0
 
     async def evaluate(self, *args, **kwargs):
-        # Periodic evaluation logic
+        # 주기적 평가 로직
         ...
 
 if __name__ == "__main__":
     MyEnv.cli()
 ```
 
-### Eval-Only Environment (Benchmark)
+### 평가 전용 환경 (벤치마크)
 
-For eval benchmarks, follow the pattern in `terminalbench2_env.py`:
-1. Create under `environments/benchmarks/your-benchmark/`
-2. Inherit from `HermesAgentBaseEnv`
-3. Set eval-only config: `eval_handling=STOP_TRAIN`, `steps_per_eval=1`, `total_steps=1`
-4. Stub the training methods (`collect_trajectories`, `score`)
-5. Implement `rollout_and_score_eval()` and `evaluate()`
-6. Run with `evaluate` subcommand
+평가 벤치마크의 경우 `terminalbench2_env.py`의 패턴을 따르세요:
+1. `environments/benchmarks/your-benchmark/` 아래에 생성
+2. `HermesAgentBaseEnv`를 상속
+3. 평가 전용 설정: `eval_handling=STOP_TRAIN`, `steps_per_eval=1`, `total_steps=1`
+4. 훈련 메서드 스텁 처리 (`collect_trajectories`, `score`)
+5. `rollout_and_score_eval()`과 `evaluate()` 구현
+6. `evaluate` 하위 명령으로 실행
 
-## Key Config Fields
+## 주요 설정 필드
 
-| Field | Description | Default |
-|-------|-------------|---------|
-| `enabled_toolsets` | Which hermes toolsets to enable | `None` (all) |
-| `disabled_toolsets` | Toolsets to disable | `None` |
-| `distribution` | Probabilistic toolset distribution name | `None` |
-| `max_agent_turns` | Max LLM calls per rollout | `30` |
-| `agent_temperature` | Sampling temperature | `1.0` |
+| 필드 | 설명 | 기본값 |
+|------|------|--------|
+| `enabled_toolsets` | 활성화할 hermes 도구 세트 | `None` (전체) |
+| `disabled_toolsets` | 비활성화할 도구 세트 | `None` |
+| `distribution` | 확률적 도구 세트 분포 이름 | `None` |
+| `max_agent_turns` | 롤아웃당 최대 LLM 호출 수 | `30` |
+| `agent_temperature` | 샘플링 온도 | `1.0` |
 | `terminal_backend` | `local`, `docker`, `modal`, `daytona`, `ssh`, `singularity` | `local` |
-| `system_prompt` | System message for the agent | `None` |
-| `tool_call_parser` | Parser name for Phase 2 | `hermes` |
+| `system_prompt` | 에이전트용 시스템 메시지 | `None` |
+| `tool_call_parser` | 2단계용 파서 이름 | `hermes` |
 | `eval_handling` | `STOP_TRAIN`, `LIMIT_TRAIN`, `NONE` | `STOP_TRAIN` |

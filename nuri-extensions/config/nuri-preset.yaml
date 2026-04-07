@@ -1,0 +1,56 @@
+# NURI Agent PKM 최적화 설정 프리셋
+#
+# 사용법:
+#   이 파일의 내용을 ~/.hermes/config.yaml에 병합하거나,
+#   필요한 항목만 선택적으로 복사하세요.
+#
+# cp nuri-extensions/config/nuri-preset.yaml ~/.hermes/config.yaml
+
+# --- 모델 설정 ---
+# PKM 작업에 적합한 모델 (긴 컨텍스트, 한국어 지원)
+model: openrouter/anthropic/claude-sonnet-4
+
+# --- 메모리 설정 ---
+memory:
+  # 메모리 자동 저장 활성화
+  enabled: true
+  # 넛지 빈도 (N턴마다 메모리 저장 여부 확인)
+  nudge_interval: 5
+
+# --- 컨텍스트 압축 ---
+compression:
+  # 압축 임계값 (컨텍스트의 N% 사용 시 압축)
+  threshold_percent: 50
+  # 요약 토큰 비율
+  summary_target_ratio: 0.2
+
+# --- 도구 설정 ---
+toolsets:
+  enabled:
+    - terminal
+    - file
+    - web
+    - nuri-pkm    # NURI PKM 전용 도구
+
+# --- 크론 설정 ---
+cron:
+  enabled: true
+  # 주간 리뷰 크론 (매주 일요일 21:00)
+  # hermes CLI에서 설정: /cron 매주 일요일 21:00에 주간 리뷰 생성
+
+# --- 스킬 설정 ---
+skills:
+  # NURI 확장 스킬 경로 (심링크 또는 직접 지정)
+  additional_paths:
+    - ./nuri-extensions/skills
+
+# --- 디스플레이 ---
+display:
+  skin: default
+  # 도구 실행 시 진행 상황 표시
+  tool_progress: true
+
+# --- NURI Base 설정 (환경변수) ---
+# .env 파일에 추가:
+#   NURI_BASE=/path/to/your/notes
+# 미설정 시 현재 디렉토리의 notes/ 폴더를 사용합니다.

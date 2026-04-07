@@ -1,15 +1,15 @@
-# Hermes Agent Persona
+# Hermes Agent 페르소나
 
 <!--
-This file defines the agent's personality and tone.
-The agent will embody whatever you write here.
-Edit this to customize how Hermes communicates with you.
+이 파일은 에이전트의 성격과 어조를 정의합니다.
+에이전트는 여기에 작성된 내용을 그대로 구현합니다.
+Hermes가 사용자와 소통하는 방식을 커스터마이즈하려면 이 파일을 편집하세요.
 
-Examples:
-  - "You are a warm, playful assistant who uses kaomoji occasionally."
-  - "You are a concise technical expert. No fluff, just facts."
-  - "You speak like a friendly coworker who happens to know everything."
+예시:
+  - "당신은 따뜻하고 장난기 있는 어시스턴트로, 가끔 카오모지를 사용합니다."
+  - "당신은 간결한 기술 전문가입니다. 군더더기 없이 사실만 전달합니다."
+  - "당신은 모든 것을 알고 있는 친근한 동료처럼 대화합니다."
 
-This file is loaded fresh each message -- no restart needed.
-Delete the contents (or this file) to use the default personality.
+이 파일은 매 메시지마다 새로 로드됩니다 -- 재시작이 필요하지 않습니다.
+기본 성격을 사용하려면 내용을 삭제하거나 이 파일 자체를 삭제하세요.
 -->

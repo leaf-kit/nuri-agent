@@ -1,85 +1,85 @@
-# Hermes Agent - Development Guide
+# Hermes Agent - 개발 가이드
 
-Instructions for AI coding assistants and developers working on the hermes-agent codebase.
+AI 코딩 어시스턴트 및 hermes-agent 코드베이스에서 작업하는 개발자를 위한 안내서입니다.
 
-## Development Environment
+## 개발 환경
 
 ```bash
-source venv/bin/activate  # ALWAYS activate before running Python
+source venv/bin/activate  # Python 실행 전 반드시 활성화
 ```
 
-## Project Structure
+## 프로젝트 구조
 
 ```
 hermes-agent/
-├── run_agent.py          # AIAgent class — core conversation loop
-├── model_tools.py        # Tool orchestration, _discover_tools(), handle_function_call()
-├── toolsets.py           # Toolset definitions, _HERMES_CORE_TOOLS list
-├── cli.py                # HermesCLI class — interactive CLI orchestrator
-├── hermes_state.py       # SessionDB — SQLite session store (FTS5 search)
-├── agent/                # Agent internals
-│   ├── prompt_builder.py     # System prompt assembly
-│   ├── context_compressor.py # Auto context compression
-│   ├── prompt_caching.py     # Anthropic prompt caching
-│   ├── auxiliary_client.py   # Auxiliary LLM client (vision, summarization)
-│   ├── model_metadata.py     # Model context lengths, token estimation
-│   ├── models_dev.py         # models.dev registry integration (provider-aware context)
-│   ├── display.py            # KawaiiSpinner, tool preview formatting
-│   ├── skill_commands.py     # Skill slash commands (shared CLI/gateway)
-│   └── trajectory.py         # Trajectory saving helpers
-├── hermes_cli/           # CLI subcommands and setup
-│   ├── main.py           # Entry point — all `hermes` subcommands
-│   ├── config.py         # DEFAULT_CONFIG, OPTIONAL_ENV_VARS, migration
-│   ├── commands.py       # Slash command definitions + SlashCommandCompleter
-│   ├── callbacks.py      # Terminal callbacks (clarify, sudo, approval)
-│   ├── setup.py          # Interactive setup wizard
-│   ├── skin_engine.py    # Skin/theme engine — CLI visual customization
-│   ├── skills_config.py  # `hermes skills` — enable/disable skills per platform
-│   ├── tools_config.py   # `hermes tools` — enable/disable tools per platform
-│   ├── skills_hub.py     # `/skills` slash command (search, browse, install)
-│   ├── models.py         # Model catalog, provider model lists
-│   ├── model_switch.py   # Shared /model switch pipeline (CLI + gateway)
-│   └── auth.py           # Provider credential resolution
-├── tools/                # Tool implementations (one file per tool)
-│   ├── registry.py       # Central tool registry (schemas, handlers, dispatch)
-│   ├── approval.py       # Dangerous command detection
-│   ├── terminal_tool.py  # Terminal orchestration
-│   ├── process_registry.py # Background process management
-│   ├── file_tools.py     # File read/write/search/patch
-│   ├── web_tools.py      # Web search/extract (Parallel + Firecrawl)
-│   ├── browser_tool.py   # Browserbase browser automation
-│   ├── code_execution_tool.py # execute_code sandbox
-│   ├── delegate_tool.py  # Subagent delegation
-│   ├── mcp_tool.py       # MCP client (~1050 lines)
-│   └── environments/     # Terminal backends (local, docker, ssh, modal, daytona, singularity)
-├── gateway/              # Messaging platform gateway
-│   ├── run.py            # Main loop, slash commands, message dispatch
-│   ├── session.py        # SessionStore — conversation persistence
-│   └── platforms/        # Adapters: telegram, discord, slack, whatsapp, homeassistant, signal
-├── acp_adapter/          # ACP server (VS Code / Zed / JetBrains integration)
-├── cron/                 # Scheduler (jobs.py, scheduler.py)
-├── environments/         # RL training environments (Atropos)
-├── tests/                # Pytest suite (~3000 tests)
-└── batch_runner.py       # Parallel batch processing
+├── run_agent.py          # AIAgent 클래스 — 핵심 대화 루프
+├── model_tools.py        # 도구 오케스트레이션, _discover_tools(), handle_function_call()
+├── toolsets.py           # 도구세트 정의, _HERMES_CORE_TOOLS 목록
+├── cli.py                # HermesCLI 클래스 — 대화형 CLI 오케스트레이터
+├── hermes_state.py       # SessionDB — SQLite 세션 저장소 (FTS5 검색)
+├── agent/                # 에이전트 내부 모듈
+│   ├── prompt_builder.py     # 시스템 프롬프트 조립
+│   ├── context_compressor.py # 자동 컨텍스트 압축
+│   ├── prompt_caching.py     # Anthropic 프롬프트 캐싱
+│   ├── auxiliary_client.py   # 보조 LLM 클라이언트 (비전, 요약)
+│   ├── model_metadata.py     # 모델 컨텍스트 길이, 토큰 추정
+│   ├── models_dev.py         # models.dev 레지스트리 통합 (프로바이더 인식 컨텍스트)
+│   ├── display.py            # KawaiiSpinner, 도구 미리보기 포맷팅
+│   ├── skill_commands.py     # 스킬 슬래시 명령어 (CLI/게이트웨이 공유)
+│   └── trajectory.py         # 궤적 저장 헬퍼
+├── hermes_cli/           # CLI 하위 명령어 및 설정
+│   ├── main.py           # 진입점 — 모든 `hermes` 하위 명령어
+│   ├── config.py         # DEFAULT_CONFIG, OPTIONAL_ENV_VARS, 마이그레이션
+│   ├── commands.py       # 슬래시 명령어 정의 + SlashCommandCompleter
+│   ├── callbacks.py      # 터미널 콜백 (명확화, sudo, 승인)
+│   ├── setup.py          # 대화형 설정 마법사
+│   ├── skin_engine.py    # 스킨/테마 엔진 — CLI 시각적 커스터마이징
+│   ├── skills_config.py  # `hermes skills` — 플랫폼별 스킬 활성화/비활성화
+│   ├── tools_config.py   # `hermes tools` — 플랫폼별 도구 활성화/비활성화
+│   ├── skills_hub.py     # `/skills` 슬래시 명령어 (검색, 탐색, 설치)
+│   ├── models.py         # 모델 카탈로그, 프로바이더 모델 목록
+│   ├── model_switch.py   # 공유 /model 전환 파이프라인 (CLI + 게이트웨이)
+│   └── auth.py           # 프로바이더 자격 증명 해석
+├── tools/                # 도구 구현 (파일당 하나의 도구)
+│   ├── registry.py       # 중앙 도구 레지스트리 (스키마, 핸들러, 디스패치)
+│   ├── approval.py       # 위험한 명령어 감지
+│   ├── terminal_tool.py  # 터미널 오케스트레이션
+│   ├── process_registry.py # 백그라운드 프로세스 관리
+│   ├── file_tools.py     # 파일 읽기/쓰기/검색/패치
+│   ├── web_tools.py      # 웹 검색/추출 (Parallel + Firecrawl)
+│   ├── browser_tool.py   # Browserbase 브라우저 자동화
+│   ├── code_execution_tool.py # execute_code 샌드박스
+│   ├── delegate_tool.py  # 서브에이전트 위임
+│   ├── mcp_tool.py       # MCP 클라이언트 (~1050줄)
+│   └── environments/     # 터미널 백엔드 (local, docker, ssh, modal, daytona, singularity)
+├── gateway/              # 메시징 플랫폼 게이트웨이
+│   ├── run.py            # 메인 루프, 슬래시 명령어, 메시지 디스패치
+│   ├── session.py        # SessionStore — 대화 영속화
+│   └── platforms/        # 어댑터: telegram, discord, slack, whatsapp, homeassistant, signal
+├── acp_adapter/          # ACP 서버 (VS Code / Zed / JetBrains 통합)
+├── cron/                 # 스케줄러 (jobs.py, scheduler.py)
+├── environments/         # RL 훈련 환경 (Atropos)
+├── tests/                # Pytest 스위트 (~3000개 테스트)
+└── batch_runner.py       # 병렬 배치 처리
 ```
 
-**User config:** `~/.hermes/config.yaml` (settings), `~/.hermes/.env` (API keys)
+**사용자 설정:** `~/.hermes/config.yaml` (설정), `~/.hermes/.env` (API 키)
 
-## File Dependency Chain
+## 파일 의존성 체인
 
 ```
-tools/registry.py  (no deps — imported by all tool files)
+tools/registry.py  (의존성 없음 — 모든 도구 파일에서 임포트)
        ↑
-tools/*.py  (each calls registry.register() at import time)
+tools/*.py  (각각 임포트 시 registry.register() 호출)
        ↑
-model_tools.py  (imports tools/registry + triggers tool discovery)
+model_tools.py  (tools/registry 임포트 + 도구 발견 트리거)
        ↑
 run_agent.py, cli.py, batch_runner.py, environments/
 ```
 
 ---
 
-## AIAgent Class (run_agent.py)
+## AIAgent 클래스 (run_agent.py)
 
 ```python
 class AIAgent:
@@ -90,24 +90,24 @@ class AIAgent:
         disabled_toolsets: list = None,
         quiet_mode: bool = False,
         save_trajectories: bool = False,
-        platform: str = None,           # "cli", "telegram", etc.
+        platform: str = None,           # "cli", "telegram" 등
         session_id: str = None,
         skip_context_files: bool = False,
         skip_memory: bool = False,
-        # ... plus provider, api_mode, callbacks, routing params
+        # ... 추가로 provider, api_mode, callbacks, routing 매개변수
     ): ...
 
     def chat(self, message: str) -> str:
-        """Simple interface — returns final response string."""
+        """간단한 인터페이스 — 최종 응답 문자열을 반환합니다."""
 
     def run_conversation(self, user_message: str, system_message: str = None,
                          conversation_history: list = None, task_id: str = None) -> dict:
-        """Full interface — returns dict with final_response + messages."""
+        """전체 인터페이스 — final_response + messages가 포함된 dict를 반환합니다."""
 ```
 
-### Agent Loop
+### 에이전트 루프
 
-The core loop is inside `run_conversation()` — entirely synchronous:
+핵심 루프는 `run_conversation()` 내부에 있으며 — 완전히 동기식입니다:
 
 ```python
 while api_call_count < self.max_iterations and self.iteration_budget.remaining > 0:
@@ -121,69 +121,69 @@ while api_call_count < self.max_iterations and self.iteration_budget.remaining >
         return response.content
 ```
 
-Messages follow OpenAI format: `{"role": "system/user/assistant/tool", ...}`. Reasoning content is stored in `assistant_msg["reasoning"]`.
+메시지는 OpenAI 형식을 따릅니다: `{"role": "system/user/assistant/tool", ...}`. 추론 내용은 `assistant_msg["reasoning"]`에 저장됩니다.
 
 ---
 
-## CLI Architecture (cli.py)
+## CLI 아키텍처 (cli.py)
 
-- **Rich** for banner/panels, **prompt_toolkit** for input with autocomplete
-- **KawaiiSpinner** (`agent/display.py`) — animated faces during API calls, `┊` activity feed for tool results
-- `load_cli_config()` in cli.py merges hardcoded defaults + user config YAML
-- **Skin engine** (`hermes_cli/skin_engine.py`) — data-driven CLI theming; initialized from `display.skin` config key at startup; skins customize banner colors, spinner faces/verbs/wings, tool prefix, response box, branding text
-- `process_command()` is a method on `HermesCLI` — dispatches on canonical command name resolved via `resolve_command()` from the central registry
-- Skill slash commands: `agent/skill_commands.py` scans `~/.hermes/skills/`, injects as **user message** (not system prompt) to preserve prompt caching
+- 배너/패널에 **Rich**, 자동완성 입력에 **prompt_toolkit** 사용
+- **KawaiiSpinner** (`agent/display.py`) — API 호출 시 애니메이션 이모지, 도구 결과를 위한 `┊` 활동 피드
+- `cli.py`의 `load_cli_config()`가 하드코딩된 기본값 + 사용자 설정 YAML을 병합
+- **스킨 엔진** (`hermes_cli/skin_engine.py`) — 데이터 주도 CLI 테마; 시작 시 `display.skin` 설정 키로 초기화; 스킨이 배너 색상, 스피너 이모지/동사/날개, 도구 접두사, 응답 상자, 브랜딩 텍스트를 커스터마이즈
+- `process_command()`는 `HermesCLI`의 메서드 — 중앙 레지스트리의 `resolve_command()`로 확인된 정식 명령어 이름으로 디스패치
+- 스킬 슬래시 명령어: `agent/skill_commands.py`가 `~/.hermes/skills/`를 스캔하여 프롬프트 캐싱을 보존하기 위해 **사용자 메시지**로 주입 (시스템 프롬프트가 아님)
 
-### Slash Command Registry (`hermes_cli/commands.py`)
+### 슬래시 명령어 레지스트리 (`hermes_cli/commands.py`)
 
-All slash commands are defined in a central `COMMAND_REGISTRY` list of `CommandDef` objects. Every downstream consumer derives from this registry automatically:
+모든 슬래시 명령어는 `CommandDef` 객체의 중앙 `COMMAND_REGISTRY` 목록에 정의됩니다. 모든 하위 소비자가 이 레지스트리에서 자동으로 파생됩니다:
 
-- **CLI** — `process_command()` resolves aliases via `resolve_command()`, dispatches on canonical name
-- **Gateway** — `GATEWAY_KNOWN_COMMANDS` frozenset for hook emission, `resolve_command()` for dispatch
-- **Gateway help** — `gateway_help_lines()` generates `/help` output
-- **Telegram** — `telegram_bot_commands()` generates the BotCommand menu
-- **Slack** — `slack_subcommand_map()` generates `/hermes` subcommand routing
-- **Autocomplete** — `COMMANDS` flat dict feeds `SlashCommandCompleter`
-- **CLI help** — `COMMANDS_BY_CATEGORY` dict feeds `show_help()`
+- **CLI** — `process_command()`가 `resolve_command()`로 별칭 확인 후 정식 이름으로 디스패치
+- **게이트웨이** — 훅 발생을 위한 `GATEWAY_KNOWN_COMMANDS` frozenset, 디스패치를 위한 `resolve_command()`
+- **게이트웨이 도움말** — `gateway_help_lines()`가 `/help` 출력 생성
+- **Telegram** — `telegram_bot_commands()`가 BotCommand 메뉴 생성
+- **Slack** — `slack_subcommand_map()`이 `/hermes` 하위 명령어 라우팅 생성
+- **자동완성** — `COMMANDS` 플랫 딕셔너리가 `SlashCommandCompleter`에 전달
+- **CLI 도움말** — `COMMANDS_BY_CATEGORY` 딕셔너리가 `show_help()`에 전달
 
-### Adding a Slash Command
+### 슬래시 명령어 추가하기
 
-1. Add a `CommandDef` entry to `COMMAND_REGISTRY` in `hermes_cli/commands.py`:
+1. `hermes_cli/commands.py`의 `COMMAND_REGISTRY`에 `CommandDef` 항목 추가:
 ```python
 CommandDef("mycommand", "Description of what it does", "Session",
            aliases=("mc",), args_hint="[arg]"),
 ```
-2. Add handler in `HermesCLI.process_command()` in `cli.py`:
+2. `cli.py`의 `HermesCLI.process_command()`에 핸들러 추가:
 ```python
 elif canonical == "mycommand":
     self._handle_mycommand(cmd_original)
 ```
-3. If the command is available in the gateway, add a handler in `gateway/run.py`:
+3. 게이트웨이에서도 사용 가능한 명령어라면, `gateway/run.py`에 핸들러 추가:
 ```python
 if canonical == "mycommand":
     return await self._handle_mycommand(event)
 ```
-4. For persistent settings, use `save_config_value()` in `cli.py`
+4. 영속적 설정에는 `cli.py`의 `save_config_value()` 사용
 
-**CommandDef fields:**
-- `name` — canonical name without slash (e.g. `"background"`)
-- `description` — human-readable description
-- `category` — one of `"Session"`, `"Configuration"`, `"Tools & Skills"`, `"Info"`, `"Exit"`
-- `aliases` — tuple of alternative names (e.g. `("bg",)`)
-- `args_hint` — argument placeholder shown in help (e.g. `"<prompt>"`, `"[name]"`)
-- `cli_only` — only available in the interactive CLI
-- `gateway_only` — only available in messaging platforms
-- `gateway_config_gate` — config dotpath (e.g. `"display.tool_progress_command"`); when set on a `cli_only` command, the command becomes available in the gateway if the config value is truthy. `GATEWAY_KNOWN_COMMANDS` always includes config-gated commands so the gateway can dispatch them; help/menus only show them when the gate is open.
+**CommandDef 필드:**
+- `name` — 슬래시 없는 정식 이름 (예: `"background"`)
+- `description` — 사람이 읽을 수 있는 설명
+- `category` — `"Session"`, `"Configuration"`, `"Tools & Skills"`, `"Info"`, `"Exit"` 중 하나
+- `aliases` — 대체 이름 튜플 (예: `("bg",)`)
+- `args_hint` — 도움말에 표시되는 인수 자리표시자 (예: `"<prompt>"`, `"[name]"`)
+- `cli_only` — 대화형 CLI에서만 사용 가능
+- `gateway_only` — 메시징 플랫폼에서만 사용 가능
+- `gateway_config_gate` — 설정 도트 경로 (예: `"display.tool_progress_command"`); `cli_only` 명령어에 설정하면 설정값이 참일 때 게이트웨이에서 사용 가능. `GATEWAY_KNOWN_COMMANDS`는 항상 설정 게이트 명령어를 포함하여 게이트웨이가 디스패치 가능; 도움말/메뉴는 게이트가 열려있을 때만 표시.
 
-**Adding an alias** requires only adding it to the `aliases` tuple on the existing `CommandDef`. No other file changes needed — dispatch, help text, Telegram menu, Slack mapping, and autocomplete all update automatically.
+**별칭 추가**는 기존 `CommandDef`의 `aliases` 튜플에만 추가하면 됩니다. 다른 파일 변경 불필요 — 디스패치, 도움말 텍스트, Telegram 메뉴, Slack 매핑, 자동완성이 모두 자동으로 업데이트됩니다.
 
 ---
 
-## Adding New Tools
+## 새 도구 추가하기
 
-Requires changes in **3 files**:
+**3개 파일**에 변경이 필요합니다:
 
-**1. Create `tools/your_tool.py`:**
+**1. `tools/your_tool.py` 생성:**
 ```python
 import json, os
 from tools.registry import registry
@@ -204,96 +204,96 @@ registry.register(
 )
 ```
 
-**2. Add import** in `model_tools.py` `_discover_tools()` list.
+**2. `model_tools.py`**의 `_discover_tools()` 목록에 임포트 추가.
 
-**3. Add to `toolsets.py`** — either `_HERMES_CORE_TOOLS` (all platforms) or a new toolset.
+**3. `toolsets.py`에 추가** — `_HERMES_CORE_TOOLS` (모든 플랫폼) 또는 새 도구세트.
 
-The registry handles schema collection, dispatch, availability checking, and error wrapping. All handlers MUST return a JSON string.
+레지스트리가 스키마 수집, 디스패치, 가용성 확인, 오류 래핑을 처리합니다. 모든 핸들러는 JSON 문자열을 반환해야 합니다.
 
-**Path references in tool schemas**: If the schema description mentions file paths (e.g. default output directories), use `display_hermes_home()` to make them profile-aware. The schema is generated at import time, which is after `_apply_profile_override()` sets `HERMES_HOME`.
+**도구 스키마의 경로 참조**: 스키마 설명에 파일 경로가 언급되면 (예: 기본 출력 디렉토리), 프로필 인식을 위해 `display_hermes_home()`을 사용하세요. 스키마는 임포트 시점에 생성되며, 이는 `_apply_profile_override()`가 `HERMES_HOME`을 설정한 후입니다.
 
-**State files**: If a tool stores persistent state (caches, logs, checkpoints), use `get_hermes_home()` for the base directory — never `Path.home() / ".hermes"`. This ensures each profile gets its own state.
+**상태 파일**: 도구가 영속적 상태(캐시, 로그, 체크포인트)를 저장하면, 기본 디렉토리에 `get_hermes_home()`을 사용하세요 — 절대 `Path.home() / ".hermes"`를 사용하지 마세요. 이렇게 하면 각 프로필이 고유한 상태를 갖게 됩니다.
 
-**Agent-level tools** (todo, memory): intercepted by `run_agent.py` before `handle_function_call()`. See `todo_tool.py` for the pattern.
+**에이전트 수준 도구** (todo, memory): `handle_function_call()` 전에 `run_agent.py`가 가로챕니다. 패턴은 `todo_tool.py`를 참조하세요.
 
 ---
 
-## Adding Configuration
+## 설정 추가하기
 
-### config.yaml options:
-1. Add to `DEFAULT_CONFIG` in `hermes_cli/config.py`
-2. Bump `_config_version` (currently 5) to trigger migration for existing users
+### config.yaml 옵션:
+1. `hermes_cli/config.py`의 `DEFAULT_CONFIG`에 추가
+2. `_config_version` (현재 5) 증가로 기존 사용자의 마이그레이션 트리거
 
-### .env variables:
-1. Add to `OPTIONAL_ENV_VARS` in `hermes_cli/config.py` with metadata:
+### .env 변수:
+1. `hermes_cli/config.py`의 `OPTIONAL_ENV_VARS`에 메타데이터와 함께 추가:
 ```python
 "NEW_API_KEY": {
-    "description": "What it's for",
-    "prompt": "Display name",
+    "description": "용도 설명",
+    "prompt": "표시 이름",
     "url": "https://...",
     "password": True,
     "category": "tool",  # provider, tool, messaging, setting
 },
 ```
 
-### Config loaders (two separate systems):
+### 설정 로더 (두 개의 별도 시스템):
 
-| Loader | Used by | Location |
-|--------|---------|----------|
-| `load_cli_config()` | CLI mode | `cli.py` |
+| 로더 | 사용처 | 위치 |
+|------|--------|------|
+| `load_cli_config()` | CLI 모드 | `cli.py` |
 | `load_config()` | `hermes tools`, `hermes setup` | `hermes_cli/config.py` |
-| Direct YAML load | Gateway | `gateway/run.py` |
+| 직접 YAML 로드 | 게이트웨이 | `gateway/run.py` |
 
 ---
 
-## Skin/Theme System
+## 스킨/테마 시스템
 
-The skin engine (`hermes_cli/skin_engine.py`) provides data-driven CLI visual customization. Skins are **pure data** — no code changes needed to add a new skin.
+스킨 엔진(`hermes_cli/skin_engine.py`)은 데이터 주도 CLI 시각적 커스터마이징을 제공합니다. 스킨은 **순수 데이터** — 새 스킨을 추가하는 데 코드 변경이 필요 없습니다.
 
-### Architecture
+### 아키텍처
 
 ```
-hermes_cli/skin_engine.py    # SkinConfig dataclass, built-in skins, YAML loader
-~/.hermes/skins/*.yaml       # User-installed custom skins (drop-in)
+hermes_cli/skin_engine.py    # SkinConfig 데이터클래스, 내장 스킨, YAML 로더
+~/.hermes/skins/*.yaml       # 사용자 설치 커스텀 스킨 (드롭인)
 ```
 
-- `init_skin_from_config()` — called at CLI startup, reads `display.skin` from config
-- `get_active_skin()` — returns cached `SkinConfig` for the current skin
-- `set_active_skin(name)` — switches skin at runtime (used by `/skin` command)
-- `load_skin(name)` — loads from user skins first, then built-ins, then falls back to default
-- Missing skin values inherit from the `default` skin automatically
+- `init_skin_from_config()` — CLI 시작 시 호출, 설정에서 `display.skin` 읽기
+- `get_active_skin()` — 현재 스킨의 캐시된 `SkinConfig` 반환
+- `set_active_skin(name)` — 런타임에 스킨 전환 (`/skin` 명령어에서 사용)
+- `load_skin(name)` — 사용자 스킨 먼저, 그 다음 내장, 그 다음 기본으로 폴백
+- 누락된 스킨 값은 `default` 스킨에서 자동 상속
 
-### What skins customize
+### 스킨이 커스터마이즈하는 요소
 
-| Element | Skin Key | Used By |
-|---------|----------|---------|
-| Banner panel border | `colors.banner_border` | `banner.py` |
-| Banner panel title | `colors.banner_title` | `banner.py` |
-| Banner section headers | `colors.banner_accent` | `banner.py` |
-| Banner dim text | `colors.banner_dim` | `banner.py` |
-| Banner body text | `colors.banner_text` | `banner.py` |
-| Response box border | `colors.response_border` | `cli.py` |
-| Spinner faces (waiting) | `spinner.waiting_faces` | `display.py` |
-| Spinner faces (thinking) | `spinner.thinking_faces` | `display.py` |
-| Spinner verbs | `spinner.thinking_verbs` | `display.py` |
-| Spinner wings (optional) | `spinner.wings` | `display.py` |
-| Tool output prefix | `tool_prefix` | `display.py` |
-| Per-tool emojis | `tool_emojis` | `display.py` → `get_tool_emoji()` |
-| Agent name | `branding.agent_name` | `banner.py`, `cli.py` |
-| Welcome message | `branding.welcome` | `cli.py` |
-| Response box label | `branding.response_label` | `cli.py` |
-| Prompt symbol | `branding.prompt_symbol` | `cli.py` |
+| 요소 | 스킨 키 | 사용처 |
+|------|---------|--------|
+| 배너 패널 테두리 | `colors.banner_border` | `banner.py` |
+| 배너 패널 제목 | `colors.banner_title` | `banner.py` |
+| 배너 섹션 헤더 | `colors.banner_accent` | `banner.py` |
+| 배너 흐린 텍스트 | `colors.banner_dim` | `banner.py` |
+| 배너 본문 텍스트 | `colors.banner_text` | `banner.py` |
+| 응답 상자 테두리 | `colors.response_border` | `cli.py` |
+| 스피너 이모지 (대기) | `spinner.waiting_faces` | `display.py` |
+| 스피너 이모지 (사고) | `spinner.thinking_faces` | `display.py` |
+| 스피너 동사 | `spinner.thinking_verbs` | `display.py` |
+| 스피너 날개 (선택사항) | `spinner.wings` | `display.py` |
+| 도구 출력 접두사 | `tool_prefix` | `display.py` |
+| 도구별 이모지 | `tool_emojis` | `display.py` → `get_tool_emoji()` |
+| 에이전트 이름 | `branding.agent_name` | `banner.py`, `cli.py` |
+| 환영 메시지 | `branding.welcome` | `cli.py` |
+| 응답 상자 레이블 | `branding.response_label` | `cli.py` |
+| 프롬프트 기호 | `branding.prompt_symbol` | `cli.py` |
 
-### Built-in skins
+### 내장 스킨
 
-- `default` — Classic Hermes gold/kawaii (the current look)
-- `ares` — Crimson/bronze war-god theme with custom spinner wings
-- `mono` — Clean grayscale monochrome
-- `slate` — Cool blue developer-focused theme
+- `default` — 클래식 Hermes 골드/카와이 (현재 외관)
+- `ares` — 크림슨/브론즈 전쟁의 신 테마, 커스텀 스피너 날개
+- `mono` — 깔끔한 그레이스케일 모노크롬
+- `slate` — 쿨 블루 개발자 중심 테마
 
-### Adding a built-in skin
+### 내장 스킨 추가하기
 
-Add to `_BUILTIN_SKINS` dict in `hermes_cli/skin_engine.py`:
+`hermes_cli/skin_engine.py`의 `_BUILTIN_SKINS` 딕셔너리에 추가:
 
 ```python
 "mytheme": {
@@ -306,9 +306,9 @@ Add to `_BUILTIN_SKINS` dict in `hermes_cli/skin_engine.py`:
 },
 ```
 
-### User skins (YAML)
+### 사용자 스킨 (YAML)
 
-Users create `~/.hermes/skins/<name>.yaml`:
+`~/.hermes/skins/<name>.yaml` 생성:
 
 ```yaml
 name: cyberpunk
@@ -331,118 +331,101 @@ branding:
 tool_prefix: "▏"
 ```
 
-Activate with `/skin cyberpunk` or `display.skin: cyberpunk` in config.yaml.
+`/skin cyberpunk` 또는 config.yaml에서 `display.skin: cyberpunk`로 활성화.
 
 ---
 
-## Important Policies
-### Prompt Caching Must Not Break
+## 중요 정책
 
-Hermes-Agent ensures caching remains valid throughout a conversation. **Do NOT implement changes that would:**
-- Alter past context mid-conversation
-- Change toolsets mid-conversation
-- Reload memories or rebuild system prompts mid-conversation
+### 프롬프트 캐싱을 깨뜨리면 안 됨
 
-Cache-breaking forces dramatically higher costs. The ONLY time we alter context is during context compression.
+Hermes-Agent는 대화 전체에서 캐싱이 유효하게 유지되도록 보장합니다. **다음을 야기하는 변경을 구현하지 마세요:**
+- 대화 중 과거 컨텍스트 변경
+- 대화 중 도구세트 변경
+- 대화 중 메모리 재로드 또는 시스템 프롬프트 재구축
 
-### Working Directory Behavior
-- **CLI**: Uses current directory (`.` → `os.getcwd()`)
-- **Messaging**: Uses `MESSAGING_CWD` env var (default: home directory)
+캐시 파괴는 극적으로 높은 비용을 초래합니다. 컨텍스트를 변경하는 유일한 시점은 컨텍스트 압축 중입니다.
 
-### Background Process Notifications (Gateway)
+### 작업 디렉토리 동작
+- **CLI**: 현재 디렉토리 사용 (`.` → `os.getcwd()`)
+- **메시징**: `MESSAGING_CWD` 환경 변수 사용 (기본값: 홈 디렉토리)
 
-When `terminal(background=true, check_interval=...)` is used, the gateway runs a watcher that
-pushes status updates to the user's chat. Control verbosity with `display.background_process_notifications`
-in config.yaml (or `HERMES_BACKGROUND_NOTIFICATIONS` env var):
+### 백그라운드 프로세스 알림 (게이트웨이)
 
-- `all` — running-output updates + final message (default)
-- `result` — only the final completion message
-- `error` — only the final message when exit code != 0
-- `off` — no watcher messages at all
+`terminal(background=true, check_interval=...)`이 사용되면, 게이트웨이가 사용자 채팅에 상태 업데이트를 푸시하는 워처를 실행합니다. config.yaml의 `display.background_process_notifications` (또는 `HERMES_BACKGROUND_NOTIFICATIONS` 환경 변수)로 상세도를 제어:
+
+- `all` — 실행 중 출력 업데이트 + 최종 메시지 (기본값)
+- `result` — 최종 완료 메시지만
+- `error` — 종료 코드가 0이 아닐 때만 최종 메시지
+- `off` — 워처 메시지 없음
 
 ---
 
-## Profiles: Multi-Instance Support
+## 프로필: 다중 인스턴스 지원
 
-Hermes supports **profiles** — multiple fully isolated instances, each with its own
-`HERMES_HOME` directory (config, API keys, memory, sessions, skills, gateway, etc.).
+Hermes는 **프로필**을 지원합니다 — 각각 고유한 `HERMES_HOME` 디렉토리(설정, API 키, 메모리, 세션, 스킬, 게이트웨이 등)를 가진 완전히 격리된 여러 인스턴스.
 
-The core mechanism: `_apply_profile_override()` in `hermes_cli/main.py` sets
-`HERMES_HOME` before any module imports. All 119+ references to `get_hermes_home()`
-automatically scope to the active profile.
+핵심 메커니즘: `hermes_cli/main.py`의 `_apply_profile_override()`가 모듈 임포트 전에 `HERMES_HOME`을 설정합니다. `get_hermes_home()`에 대한 119개 이상의 참조가 모두 자동으로 활성 프로필로 범위가 지정됩니다.
 
-### Rules for profile-safe code
+### 프로필 안전 코드 규칙
 
-1. **Use `get_hermes_home()` for all HERMES_HOME paths.** Import from `hermes_constants`.
-   NEVER hardcode `~/.hermes` or `Path.home() / ".hermes"` in code that reads/writes state.
+1. **모든 HERMES_HOME 경로에 `get_hermes_home()` 사용.** `hermes_constants`에서 임포트.
+   코드에서 상태를 읽거나 쓸 때 절대 `~/.hermes` 또는 `Path.home() / ".hermes"`를 하드코딩하지 마세요.
    ```python
-   # GOOD
+   # 올바름
    from hermes_constants import get_hermes_home
    config_path = get_hermes_home() / "config.yaml"
 
-   # BAD — breaks profiles
+   # 잘못됨 — 프로필을 깨뜨림
    config_path = Path.home() / ".hermes" / "config.yaml"
    ```
 
-2. **Use `display_hermes_home()` for user-facing messages.** Import from `hermes_constants`.
-   This returns `~/.hermes` for default or `~/.hermes/profiles/<name>` for profiles.
+2. **사용자 대면 메시지에 `display_hermes_home()` 사용.** `hermes_constants`에서 임포트.
+   기본의 경우 `~/.hermes`, 프로필의 경우 `~/.hermes/profiles/<name>`을 반환합니다.
    ```python
-   # GOOD
+   # 올바름
    from hermes_constants import display_hermes_home
    print(f"Config saved to {display_hermes_home()}/config.yaml")
 
-   # BAD — shows wrong path for profiles
+   # 잘못됨 — 프로필에서 잘못된 경로 표시
    print("Config saved to ~/.hermes/config.yaml")
    ```
 
-3. **Module-level constants are fine** — they cache `get_hermes_home()` at import time,
-   which is AFTER `_apply_profile_override()` sets the env var. Just use `get_hermes_home()`,
-   not `Path.home() / ".hermes"`.
+3. **모듈 수준 상수는 괜찮음** — 임포트 시점에 `get_hermes_home()`을 캐시하며, 이는 `_apply_profile_override()`가 환경 변수를 설정한 후입니다. `Path.home() / ".hermes"`가 아닌 `get_hermes_home()`을 사용하세요.
 
-4. **Tests that mock `Path.home()` must also set `HERMES_HOME`** — since code now uses
-   `get_hermes_home()` (reads env var), not `Path.home() / ".hermes"`:
+4. **`Path.home()`을 모킹하는 테스트는 `HERMES_HOME`도 설정해야 함** — 코드가 이제 `Path.home() / ".hermes"`가 아닌 `get_hermes_home()` (환경 변수 읽기)을 사용하므로:
    ```python
    with patch.object(Path, "home", return_value=tmp_path), \
         patch.dict(os.environ, {"HERMES_HOME": str(tmp_path / ".hermes")}):
        ...
    ```
 
-5. **Gateway platform adapters should use token locks** — if the adapter connects with
-   a unique credential (bot token, API key), call `acquire_scoped_lock()` from
-   `gateway.status` in the `connect()`/`start()` method and `release_scoped_lock()` in
-   `disconnect()`/`stop()`. This prevents two profiles from using the same credential.
-   See `gateway/platforms/telegram.py` for the canonical pattern.
+5. **게이트웨이 플랫폼 어댑터는 토큰 잠금을 사용해야 함** — 어댑터가 고유한 자격 증명(봇 토큰, API 키)으로 연결되는 경우, `connect()`/`start()` 메서드에서 `gateway.status`의 `acquire_scoped_lock()`을 호출하고 `disconnect()`/`stop()`에서 `release_scoped_lock()`을 호출하세요. 두 프로필이 같은 자격 증명을 사용하는 것을 방지합니다. 정식 패턴은 `gateway/platforms/telegram.py`를 참조하세요.
 
-6. **Profile operations are HOME-anchored, not HERMES_HOME-anchored** — `_get_profiles_root()`
-   returns `Path.home() / ".hermes" / "profiles"`, NOT `get_hermes_home() / "profiles"`.
-   This is intentional — it lets `hermes -p coder profile list` see all profiles regardless
-   of which one is active.
+6. **프로필 작업은 HERMES_HOME이 아닌 HOME 기준** — `_get_profiles_root()`는 `get_hermes_home() / "profiles"`가 아닌 `Path.home() / ".hermes" / "profiles"`를 반환합니다. 이는 의도적입니다 — `hermes -p coder profile list`가 활성 프로필과 관계없이 모든 프로필을 볼 수 있게 합니다.
 
-## Known Pitfalls
+## 알려진 함정
 
-### DO NOT hardcode `~/.hermes` paths
-Use `get_hermes_home()` from `hermes_constants` for code paths. Use `display_hermes_home()`
-for user-facing print/log messages. Hardcoding `~/.hermes` breaks profiles — each profile
-has its own `HERMES_HOME` directory. This was the source of 5 bugs fixed in PR #3575.
+### `~/.hermes` 경로를 하드코딩하지 마세요
+코드 경로에는 `hermes_constants`의 `get_hermes_home()`을 사용하세요. 사용자 대면 print/log 메시지에는 `display_hermes_home()`을 사용하세요. `~/.hermes` 하드코딩은 프로필을 깨뜨립니다 — 각 프로필은 고유한 `HERMES_HOME` 디렉토리를 가집니다. 이것은 PR #3575에서 수정된 5개 버그의 원인이었습니다.
 
-### DO NOT use `simple_term_menu` for interactive menus
-Rendering bugs in tmux/iTerm2 — ghosting on scroll. Use `curses` (stdlib) instead. See `hermes_cli/tools_config.py` for the pattern.
+### `simple_term_menu`를 대화형 메뉴에 사용하지 마세요
+tmux/iTerm2에서 렌더링 버그 — 스크롤 시 고스트. 대신 `curses` (stdlib)를 사용하세요. 패턴은 `hermes_cli/tools_config.py`를 참조하세요.
 
-### DO NOT use `\033[K` (ANSI erase-to-EOL) in spinner/display code
-Leaks as literal `?[K` text under `prompt_toolkit`'s `patch_stdout`. Use space-padding: `f"\r{line}{' ' * pad}"`.
+### 스피너/디스플레이 코드에서 `\033[K` (ANSI 줄 끝까지 지우기)를 사용하지 마세요
+`prompt_toolkit`의 `patch_stdout` 하에서 리터럴 `?[K` 텍스트로 누출됩니다. 공백 패딩을 사용하세요: `f"\r{line}{' ' * pad}"`.
 
-### `_last_resolved_tool_names` is a process-global in `model_tools.py`
-`_run_single_child()` in `delegate_tool.py` saves and restores this global around subagent execution. If you add new code that reads this global, be aware it may be temporarily stale during child agent runs.
+### `_last_resolved_tool_names`는 `model_tools.py`의 프로세스 전역 변수
+`delegate_tool.py`의 `_run_single_child()`가 서브에이전트 실행 전후로 이 전역 변수를 저장하고 복원합니다. 이 전역 변수를 읽는 새 코드를 추가하면, 자식 에이전트 실행 중에 일시적으로 오래된 값일 수 있음에 유의하세요.
 
-### DO NOT hardcode cross-tool references in schema descriptions
-Tool schema descriptions must not mention tools from other toolsets by name (e.g., `browser_navigate` saying "prefer web_search"). Those tools may be unavailable (missing API keys, disabled toolset), causing the model to hallucinate calls to non-existent tools. If a cross-reference is needed, add it dynamically in `get_tool_definitions()` in `model_tools.py` — see the `browser_navigate` / `execute_code` post-processing blocks for the pattern.
+### 도구 스키마 설명에 교차 도구 참조를 하드코딩하지 마세요
+도구 스키마 설명은 다른 도구세트의 도구를 이름으로 언급하면 안 됩니다 (예: `browser_navigate`가 "prefer web_search"라고 말하는 것). 해당 도구가 사용 불가능할 수 있으며(API 키 누락, 비활성화된 도구세트), 모델이 존재하지 않는 도구 호출을 할루시네이트하게 됩니다. 교차 참조가 필요하면, `model_tools.py`의 `get_tool_definitions()`에서 동적으로 추가하세요 — `browser_navigate` / `execute_code` 후처리 블록 패턴을 참조하세요.
 
-### Tests must not write to `~/.hermes/`
-The `_isolate_hermes_home` autouse fixture in `tests/conftest.py` redirects `HERMES_HOME` to a temp dir. Never hardcode `~/.hermes/` paths in tests.
+### 테스트는 `~/.hermes/`에 쓰면 안 됨
+`tests/conftest.py`의 `_isolate_hermes_home` autouse 픽스처가 `HERMES_HOME`을 임시 디렉토리로 리다이렉트합니다. 테스트에서 `~/.hermes/` 경로를 절대 하드코딩하지 마세요.
 
-**Profile tests**: When testing profile features, also mock `Path.home()` so that
-`_get_profiles_root()` and `_get_default_hermes_home()` resolve within the temp dir.
-Use the pattern from `tests/hermes_cli/test_profiles.py`:
+**프로필 테스트**: 프로필 기능을 테스트할 때는 `Path.home()`도 모킹하여 `_get_profiles_root()`와 `_get_default_hermes_home()`이 임시 디렉토리 내에서 해석되도록 하세요.
+`tests/hermes_cli/test_profiles.py`의 패턴을 사용하세요:
 ```python
 @pytest.fixture
 def profile_env(tmp_path, monkeypatch):
@@ -455,15 +438,15 @@ def profile_env(tmp_path, monkeypatch):
 
 ---
 
-## Testing
+## 테스트
 
 ```bash
 source venv/bin/activate
-python -m pytest tests/ -q          # Full suite (~3000 tests, ~3 min)
-python -m pytest tests/test_model_tools.py -q   # Toolset resolution
-python -m pytest tests/test_cli_init.py -q       # CLI config loading
-python -m pytest tests/gateway/ -q               # Gateway tests
-python -m pytest tests/tools/ -q                 # Tool-level tests
+python -m pytest tests/ -q          # 전체 스위트 (~3000개 테스트, ~3분)
+python -m pytest tests/test_model_tools.py -q   # 도구세트 해석
+python -m pytest tests/test_cli_init.py -q       # CLI 설정 로딩
+python -m pytest tests/gateway/ -q               # 게이트웨이 테스트
+python -m pytest tests/tools/ -q                 # 도구 수준 테스트
 ```
 
-Always run the full suite before pushing changes.
+변경사항을 푸시하기 전에 항상 전체 스위트를 실행하세요.
